@@ -1,0 +1,323 @@
+/* Minimal, brand-neutral baseline styling for the Runtime.
+   Goal: look like a normal modern web form out of the box, with no
+   colors/branding baked in — the LMS applies its own look on top of this. */
+
+.lms-workbook {
+  /* Neutral grayscale only — no brand color. The LMS/instructional
+     designer applies their own color and branding on top of this. */
+  --wb-accent: #1f2328;
+  --wb-accent-soft: #eceef1;
+  --wb-text: #1f2328;
+  --wb-muted: #6b7280;
+  --wb-border: #e2e5ea;
+  --wb-border-strong: #d0d5dd;
+  --wb-bg: #f7f8fa;
+  --wb-surface: #ffffff;
+  --wb-danger: #b42318;
+
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--wb-text);
+  max-width: 760px;
+}
+
+.lms-workbook * {
+  box-sizing: border-box;
+}
+
+.wb-title {
+  font-size: 1.7em;
+  font-weight: 700;
+  margin: 0 0 0.85em;
+}
+
+.wb-section-title {
+  font-size: 1em;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  margin: 0 0 1em;
+  cursor: default;
+}
+
+details.wb-section > summary.wb-section-title {
+  cursor: pointer;
+  list-style: none;
+}
+
+details.wb-section > summary.wb-section-title::before {
+  content: "▾ ";
+  display: inline-block;
+  color: var(--wb-accent);
+}
+
+details.wb-section:not([open]) > summary.wb-section-title::before {
+  content: "▸ ";
+}
+
+/* Tabs */
+
+.wb-tabs {
+  display: flex;
+  gap: 0.4em;
+  margin-bottom: 1.75em;
+  border-bottom: 1px solid var(--wb-border);
+  padding-bottom: 0;
+}
+
+.wb-tab {
+  font: inherit;
+  padding: 0.55em 1em;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--wb-muted);
+  cursor: pointer;
+  border-radius: 6px 6px 0 0;
+}
+
+.wb-tab:hover {
+  background: var(--wb-bg);
+}
+
+.wb-tab-active {
+  color: var(--wb-accent);
+  font-weight: 600;
+  border-bottom-color: var(--wb-accent);
+}
+
+/* Sections & layout */
+
+.wb-section {
+  border: 1px solid var(--wb-border);
+  border-radius: 12px;
+  padding: 1.25em 1.4em;
+  margin-bottom: 1.25em;
+  background: var(--wb-surface);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.wb-section-fields {
+  display: flex;
+  flex-direction: column;
+}
+
+.wb-section-fields[data-columns="2"] {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5em;
+  align-items: start;
+}
+
+.wb-section-fields[data-columns="3"] {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1.5em;
+  align-items: start;
+}
+
+/* On a narrow screen (a phone, or a narrow browser window) a 2/3-column
+   grid leaves each column too thin — inputs, images and long URLs then
+   overflow their cell and visually run into the next column. Below this
+   width every section becomes a single stack regardless of its configured
+   column count. */
+@media (max-width: 600px) {
+  .wb-section-fields[data-columns="2"],
+  .wb-section-fields[data-columns="3"] {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+/* Each column is its own independent vertical stack of questions — column 1
+   fills top-to-bottom before column 2 starts, not a left-right grid of
+   pairs. This wrapper exists even with a single column, so the vertical
+   gap between questions always lives here, not on the grid itself. */
+.wb-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1em;
+}
+
+.wb-field-image img {
+  max-width: 100%;
+  border-radius: 10px;
+  display: block;
+}
+
+.wb-field-image figcaption {
+  font-size: 0.85em;
+  color: var(--wb-muted);
+  margin-top: 0.4em;
+}
+
+/* Fields */
+
+.wb-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+}
+
+.wb-field-label {
+  font-weight: 600;
+  font-size: 0.9em;
+  color: var(--wb-text);
+}
+
+.wb-required-marker {
+  color: var(--wb-danger);
+}
+
+.wb-field input[type="text"],
+.wb-field input[type="email"],
+.wb-field input[type="url"],
+.wb-field input[type="tel"],
+.wb-field input[type="password"],
+.wb-field input[type="number"],
+.wb-field input[type="date"],
+.wb-field input[type="time"],
+.wb-field input[type="datetime-local"],
+.wb-field input[type="month"],
+.wb-field input[type="week"],
+.wb-field textarea,
+.wb-field select {
+  font: inherit;
+  padding: 0.55em 0.7em;
+  border: 1px solid var(--wb-border-strong);
+  border-radius: 7px;
+  background: var(--wb-surface);
+  color: inherit;
+  max-width: 100%;
+}
+
+.wb-field input[type="text"]:focus,
+.wb-field input[type="email"]:focus,
+.wb-field input[type="url"]:focus,
+.wb-field input[type="tel"]:focus,
+.wb-field input[type="password"]:focus,
+.wb-field input[type="number"]:focus,
+.wb-field input[type="date"]:focus,
+.wb-field input[type="time"]:focus,
+.wb-field input[type="datetime-local"]:focus,
+.wb-field input[type="month"]:focus,
+.wb-field input[type="week"]:focus,
+.wb-field textarea:focus,
+.wb-field select:focus {
+  outline: 2px solid var(--wb-accent);
+  outline-offset: 1px;
+  border-color: var(--wb-accent);
+}
+
+.wb-field textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.wb-field-error {
+  font-size: 0.85em;
+  color: var(--wb-danger);
+}
+
+.wb-field-error[hidden] {
+  display: none;
+}
+
+.wb-heading {
+  font-size: 1.15em;
+  font-weight: 700;
+  margin: 0;
+}
+
+.wb-instructions {
+  color: var(--wb-muted);
+  margin: 0;
+}
+
+.wb-statement {
+  padding: 0.85em 1.1em;
+  background: var(--wb-accent-soft);
+  border-left: 3px solid var(--wb-accent);
+  border-radius: 6px;
+}
+
+/* Radio / checkbox groups */
+
+.wb-radio-group,
+.wb-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55em;
+}
+
+.wb-radio-option,
+.wb-checkbox-option,
+.wb-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+}
+
+.wb-radio-option input,
+.wb-checkbox-option input,
+.wb-checkbox-row input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--wb-accent);
+}
+
+.wb-signature-input {
+  font-family: "Segoe Script", "Brush Script MT", cursive;
+  font-size: 1.2em;
+}
+
+.wb-file-note {
+  font-size: 0.85em;
+  color: var(--wb-muted);
+}
+
+/* Download/upload/reset row — rendered automatically at the bottom of every
+   mounted workbook (see src/core/controls.js), not something an embedding
+   page has to build itself. */
+
+#wb-controls {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  flex-wrap: wrap;
+  padding-top: 1.25em;
+  margin-top: 1.5em;
+  border-top: 1px solid #e2e5ea;
+}
+
+#wb-controls button {
+  font: inherit;
+  font-weight: 500;
+  padding: 0.55em 1.1em;
+  border: 1px solid #1f2328;
+  border-radius: 7px;
+  background: #1f2328;
+  color: #fff;
+  cursor: pointer;
+}
+
+#wb-controls button:hover {
+  background: #3a3f47;
+  border-color: #3a3f47;
+}
+
+#wb-controls #wb-reset-btn {
+  background: #fff;
+  color: #1f2328;
+  border-color: #d0d5dd;
+}
+
+#wb-controls #wb-reset-btn:hover {
+  background: #f6f8fa;
+}
+
+#wb-controls label {
+  font-size: 0.9em;
+  color: #6b7280;
+}

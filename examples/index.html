@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LMS Workbook — Runtime Example</title>
+    <link rel="stylesheet" href="../src/styles.css" />
+  </head>
+  <body>
+    <!-- This is the actual, complete embed: the mount div plus the two
+         lines of glue below. Download/upload/reset are provided
+         automatically by the Runtime — no hand-wired buttons needed. -->
+    <div class="lms-workbook" data-workbook="customer-analysis"></div>
+
+    <script type="module">
+      import { sampleWorkbook } from "./sample-workbook-output.js";
+      import { mountAllWorkbooks } from "../src/index.js";
+
+      mountAllWorkbooks({ "customer-analysis": sampleWorkbook });
+    </script>
+  </body>
+</html>

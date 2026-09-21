@@ -1,0 +1,548 @@
+/* Minimal, brand-neutral Builder chrome. */
+
+:root {
+  /* Neutral grayscale only — no color choices made on your behalf. */
+  --bd-accent: #1f2328;
+  --bd-accent-soft: #eceef1;
+  --bd-text: #1f2328;
+  --bd-muted: #6b7280;
+  --bd-border: #e2e5ea;
+  --bd-border-strong: #d0d5dd;
+  --bd-bg: #f7f8fa;
+  --bd-surface: #ffffff;
+  --bd-danger: #b42318;
+  --bd-radius: 10px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--bd-text);
+  background: var(--bd-bg);
+  margin: 0;
+}
+
+.builder-shell {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 1.5em 2em 4em;
+}
+
+.builder-header {
+  display: flex;
+  align-items: baseline;
+  gap: 1em;
+  padding-bottom: 1em;
+  margin-bottom: 1.5em;
+  border-bottom: 1px solid var(--bd-border);
+}
+
+.builder-header h1 {
+  font-size: 1.4em;
+  font-weight: 700;
+  margin: 0;
+}
+
+.builder-header #builder-status-text {
+  flex: 1;
+}
+
+/* A <label> wrapping a hidden file input, styled to match every other
+   button so it doesn't read as a plain text link. */
+.builder-import-label {
+  font: inherit;
+  font-weight: 500;
+  padding: 0.5em 0.95em;
+  border: 1px solid var(--bd-border-strong);
+  border-radius: 7px;
+  background: var(--bd-surface);
+  color: var(--bd-text);
+  cursor: pointer;
+}
+
+.builder-import-label:hover {
+  background: #f3f4f6;
+}
+
+/* Same solid neutral style as every other primary action button (Add
+   section/question, Publish) — no separate color decision, just made to
+   read clearly as a clickable button instead of a passive label. */
+.builder-clear-all-btn {
+  background: var(--bd-accent);
+  color: #fff;
+  border-color: var(--bd-accent);
+  font-weight: 600;
+}
+
+.builder-clear-all-btn:hover {
+  background: #3a3f47;
+  border-color: #3a3f47;
+}
+
+#builder-status-text {
+  color: var(--bd-muted);
+  font-size: 0.88em;
+  min-height: 1.2em;
+}
+
+/* Live preview dialog — a real popup instead of a permanent sidebar column
+   squeezing the editing area. */
+.builder-preview-dialog {
+  width: min(700px, 92vw);
+  max-height: 85vh;
+  padding: 1.5em;
+  border: 1px solid var(--bd-border);
+  border-radius: var(--bd-radius);
+  box-shadow: 0 12px 40px rgba(16, 24, 40, 0.18);
+}
+
+.builder-preview-dialog::backdrop {
+  background: rgba(20, 22, 26, 0.45);
+}
+
+.builder-preview-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1em;
+}
+
+.builder-preview-dialog-header h2 {
+  font-size: 1.1em;
+  font-weight: 700;
+  margin: 0;
+}
+
+.builder-preview-dialog #builder-preview-panel {
+  max-height: calc(85vh - 5em);
+  overflow-y: auto;
+}
+
+.builder-block {
+  margin-bottom: 1.75em;
+}
+
+.builder-block h2 {
+  font-size: 0.78em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bd-muted);
+  margin: 0 0 0.6em;
+}
+
+.builder-panel {
+  border: 1px solid var(--bd-border);
+  border-radius: var(--bd-radius);
+  padding: 1.1em 1.25em;
+  background: var(--bd-surface);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+/* Form controls */
+
+input[type="text"],
+input[type="number"],
+select,
+textarea {
+  font: inherit;
+  padding: 0.5em 0.65em;
+  border: 1px solid var(--bd-border-strong);
+  border-radius: 7px;
+  background: var(--bd-surface);
+  color: inherit;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--bd-accent);
+  outline-offset: 1px;
+  border-color: var(--bd-accent);
+}
+
+button {
+  font: inherit;
+  font-weight: 500;
+  padding: 0.5em 0.95em;
+  border: 1px solid var(--bd-border-strong);
+  border-radius: 7px;
+  background: var(--bd-surface);
+  color: var(--bd-text);
+  cursor: pointer;
+  transition: background-color 0.1s ease, border-color 0.1s ease;
+}
+
+button:hover {
+  background: #f3f4f6;
+}
+
+/* Primary actions */
+
+.builder-add-section-btn,
+.builder-add-field-btn,
+#builder-download-pdf-btn {
+  background: var(--bd-accent);
+  border-color: var(--bd-accent);
+  color: #fff;
+}
+
+.builder-add-section-btn:hover,
+.builder-add-field-btn:hover,
+#builder-download-pdf-btn:hover {
+  background: #3a3f47;
+  border-color: #3a3f47;
+}
+
+#builder-download-pdf-btn {
+  width: 100%;
+  padding: 0.7em;
+  font-weight: 600;
+}
+
+/* Workbook title — lives inline in the header, not a card of its own */
+
+#builder-settings-panel label {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-size: 0.9em;
+  color: var(--bd-muted);
+}
+
+#builder-settings-panel input {
+  width: 16em;
+}
+
+
+/* Worksheet tabs — same flat/underline tab pattern as the Runtime's own
+   .wb-tabs/.wb-tab, not a separate invented style. */
+
+.builder-worksheet-list {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--bd-border);
+  margin-bottom: 1em;
+}
+
+.builder-worksheet-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  border-bottom: 2px solid transparent;
+  padding: 0 0.25em;
+}
+
+.builder-worksheet-tab-active {
+  border-bottom-color: var(--bd-text);
+}
+
+.builder-worksheet-select-btn {
+  border: none;
+  background: transparent;
+  padding: 0.6em 0.4em;
+  font-weight: 500;
+  color: var(--bd-muted);
+}
+
+.builder-worksheet-select-btn:hover {
+  color: var(--bd-text);
+  background: transparent;
+}
+
+/* Higher-specificity selector needed here: the generic `input[type="text"]`
+   rule above (an attribute selector) otherwise outranks a single class and
+   keeps drawing its own border/background/padding. */
+.builder-worksheet-tab input.builder-worksheet-name-input {
+  border: none;
+  background: transparent;
+  padding: 0.6em 0.4em;
+  font-weight: 600;
+  color: var(--bd-text);
+  /* width intentionally left to the element's `size` attribute (set in JS
+     from the current text length) so the box grows with what's typed
+     instead of clipping it at a fixed width */
+  max-width: 40vw;
+}
+
+.builder-worksheet-tab input.builder-worksheet-name-input:focus {
+  outline: none;
+}
+
+.builder-worksheet-remove-btn {
+  border: none;
+  background: transparent;
+  color: var(--bd-muted);
+  font-size: 0.9em;
+  line-height: 1;
+  padding: 0.2em 0.3em;
+}
+
+.builder-worksheet-remove-btn:hover {
+  color: var(--bd-danger);
+  background: transparent;
+}
+
+#builder-add-worksheet-btn {
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  padding: 0.6em 0.7em;
+  font-weight: 500;
+  color: var(--bd-muted);
+}
+
+#builder-add-worksheet-btn:hover {
+  color: var(--bd-text);
+  background: transparent;
+  border-bottom-color: transparent;
+}
+
+/* Section cards */
+
+.builder-section-card {
+  border: 1px solid var(--bd-border);
+  border-radius: var(--bd-radius);
+  padding: 1.1em 1.25em;
+  margin-bottom: 1em;
+  background: var(--bd-surface);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85em;
+}
+
+input.builder-section-title-input {
+  font-weight: 700;
+  font-size: 1.1em;
+  border: none;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  padding: 0.2em 0;
+}
+
+input.builder-section-title-input:focus {
+  outline: none;
+  border-bottom-color: var(--bd-accent);
+}
+
+.builder-section-card > label {
+  font-size: 0.85em;
+  color: var(--bd-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.builder-image-field-controls {
+  display: flex;
+  gap: 0.5em;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.builder-image-field-controls input {
+  flex: 1;
+  min-width: 120px;
+  background: var(--bd-surface);
+}
+
+.builder-fields-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+}
+
+.builder-field-list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Mirrors the Runtime's own [data-columns] grid so the editor shows the
+   same column layout the student will actually see, not just the preview:
+   each grid cell is one independent vertical stack (.builder-field-column),
+   not a left-right grid of individual questions. */
+.builder-field-list[data-columns="2"] {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 1em;
+  align-items: start;
+}
+
+.builder-field-list[data-columns="3"] {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0 1em;
+  align-items: start;
+}
+
+.builder-field-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+}
+
+/* Same narrow-screen collapse as the Runtime — a thin grid column here
+   overflows its cell (URLs, long labels) and visually runs into the
+   next column. */
+@media (max-width: 700px) {
+  .builder-field-list[data-columns="2"],
+  .builder-field-list[data-columns="3"] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6em;
+  }
+}
+
+.builder-field-row {
+  border: 1px solid var(--bd-border);
+  border-radius: 8px;
+  padding: 0.75em 0.9em;
+  background: var(--bd-bg);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6em;
+  align-items: center;
+}
+
+.builder-reorder-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1em;
+}
+
+.builder-move-btn {
+  border: none;
+  background: transparent;
+  padding: 0.1em 0.3em;
+  font-size: 0.65em;
+  line-height: 1;
+  color: var(--bd-muted);
+}
+
+.builder-move-btn:hover:not(:disabled) {
+  color: var(--bd-text);
+  background: var(--bd-border);
+}
+
+.builder-move-btn:disabled {
+  color: var(--bd-border-strong);
+  cursor: default;
+}
+
+.builder-field-type-label {
+  font-size: 0.75em;
+  font-weight: 700;
+  color: var(--bd-accent);
+  background: var(--bd-accent-soft);
+  padding: 0.25em 0.6em;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.builder-field-label-input {
+  flex: 1;
+  min-width: 160px;
+  background: var(--bd-surface);
+}
+
+.builder-options-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  width: 100%;
+  padding: 0.6em 0 0 0.5em;
+  border-top: 1px dashed var(--bd-border-strong);
+  margin-top: 0.2em;
+}
+
+.builder-option-row {
+  display: flex;
+  gap: 0.5em;
+}
+
+.builder-option-row input {
+  flex: 1;
+  background: var(--bd-surface);
+}
+
+.builder-add-option-btn {
+  align-self: flex-start;
+  background: transparent;
+  border-style: dashed;
+  color: var(--bd-muted);
+}
+
+/* Per-column: the type picker sits directly on top of that column's own
+   "+ Add question" button, not shared at the top of the whole section. */
+.builder-add-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.builder-add-field-type-select {
+  width: 100%;
+  font-weight: 400;
+  color: var(--bd-text);
+}
+
+.builder-add-to-column-btn {
+  width: 100%;
+}
+
+.builder-remove-btn {
+  color: var(--bd-danger);
+  background: transparent;
+  border-color: transparent;
+  margin-left: auto;
+}
+
+.builder-remove-btn:hover {
+  background: #fef2f1;
+  border-color: #f5c6c2;
+}
+
+.builder-section-card > .builder-remove-btn {
+  align-self: flex-end;
+  margin-left: 0;
+  border-color: var(--bd-border-strong);
+}
+
+.builder-insert-field-btn {
+  width: 100%;
+  background: transparent;
+  border-style: dashed;
+  color: var(--bd-muted);
+  font-size: 0.85em;
+}
+
+
+/* Get the code */
+
+.builder-setup-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--bd-muted);
+  margin-bottom: 1em;
+}
+
+.builder-setup-label textarea#builder-workbook-html {
+  width: 100%;
+  height: 12em;
+  box-sizing: border-box;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.85em;
+  background: var(--bd-bg);
+  resize: vertical;
+}
+

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LMS Workbook Builder</title>
+    <link rel="stylesheet" href="../src/styles.css" />
+    <link rel="stylesheet" href="styles-builder.css" />
+  </head>
+  <body>
+    <div class="builder-shell">
+      <header class="builder-header">
+        <h1>Workbook Builder</h1>
+        <div id="builder-settings-panel"></div>
+        <p id="builder-status-text"></p>
+        <button type="button" id="builder-preview-btn" class="builder-preview-btn">Preview</button>
+        <label class="builder-import-label" for="builder-import-input">
+          Import workbook
+          <input type="file" id="builder-import-input" accept="application/json" hidden />
+        </label>
+        <button type="button" id="builder-clear-all-btn" class="builder-clear-all-btn">Clear all</button>
+      </header>
+
+      <div class="builder-body">
+        <main class="builder-main">
+          <section class="builder-block">
+            <h2>Worksheets</h2>
+            <div class="builder-panel" id="builder-worksheet-list"></div>
+            <div id="builder-section-editor"></div>
+          </section>
+
+          <section class="builder-block">
+            <h2>Get the code</h2>
+            <div class="builder-panel" id="builder-publish-panel"></div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <dialog id="builder-preview-dialog" class="builder-preview-dialog">
+      <div class="builder-preview-dialog-header">
+        <h2>Live preview</h2>
+        <button type="button" id="builder-preview-close-btn">Close</button>
+      </div>
+      <div class="builder-panel" id="builder-preview-panel"></div>
+    </dialog>
+
+    <script type="module">
+      import { startBuilderApp } from "./src/builder-app.js";
+
+      startBuilderApp(document);
+    </script>
+  </body>
+</html>
