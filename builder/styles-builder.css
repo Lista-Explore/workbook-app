@@ -536,9 +536,19 @@ input.builder-section-title-input:focus {
   margin-bottom: 1em;
 }
 
+.builder-setup-label textarea#builder-setup-snippet {
+  width: 100%;
+  height: 4.4em;
+  box-sizing: border-box;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.85em;
+  background: var(--bd-bg);
+  resize: vertical;
+}
+
 .builder-setup-label textarea#builder-workbook-html {
   width: 100%;
-  height: 12em;
+  height: 10em;
   box-sizing: border-box;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 0.85em;

@@ -5,6 +5,23 @@ import { registerAllFields } from "../../../src/fields/index.js";
 
 registerAllFields();
 
+// Real, hosted files — pushed to GitHub, served live by jsDelivr's CDN.
+const RUNTIME_CSS_URL = "https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/styles.css";
+const RUNTIME_JS_URL = "https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/auto-mount.js";
+
+/**
+ * The one-time setup every LMS page with a workbook on it needs — two
+ * lines, pointing at the real Runtime files on jsDelivr's CDN. The script
+ * reads the workbook HTML that's already on the page (no JSON) and adds
+ * autosave, restore, and the download/upload/reset controls to it.
+ */
+export function setupSnippet() {
+  return [
+    `<link rel="stylesheet" href="${RUNTIME_CSS_URL}" />`,
+    `<script type="module" src="${RUNTIME_JS_URL}"></script>`,
+  ].join("\n");
+}
+
 const VOID_ELEMENTS = new Set(["img", "input", "br", "hr"]);
 
 function formatAttributes(el) {
@@ -46,32 +63,47 @@ function formatNode(node, depth) {
 
 /**
  * The actual HTML that renders the workbook — real form elements (labels,
- * inputs, textareas, the image), built the same way the Live Preview
- * builds them, and indented so it reads like normal, well-formatted code.
- * Paste this directly into the LMS page; it shows the form immediately, no
- * separate file, no script, nothing else required.
+ * inputs, textareas, the image), no JSON, no data payload. The one-time
+ * setup script reads this exact markup to add autosave/PDF/reset behavior.
+ * Paste this directly into the LMS page and the form is already there.
  */
 export function workbookHtml(config) {
   const container = document.createElement("div");
+  container.dataset.workbook = config.id;
   renderWorkbook(config, container);
   return formatNode(container, 0);
 }
 
 /**
- * Shows the designer the actual HTML for their workbook — updates live as
- * they edit, nothing to click to save or "publish" first — plus a fillable
- * PDF to download.
+ * Shows the designer the one-time CDN setup, the workbook's own HTML —
+ * both update live as they edit, nothing to click to save or "publish"
+ * first — plus a fillable PDF to download.
  */
 export function renderPublishPanel(container, state, { onStatus } = {}) {
   container.innerHTML = "";
 
+  const setupLabel = document.createElement("label");
+  setupLabel.className = "builder-setup-label";
+  setupLabel.textContent = "One-time setup — paste this once on any LMS page that has a workbook on it:";
+  const setupBox = document.createElement("textarea");
+  setupBox.id = "builder-setup-snippet";
+  setupBox.readOnly = true;
+  setupBox.value = setupSnippet();
+  setupLabel.appendChild(setupBox);
+
   const htmlLabel = document.createElement("label");
   htmlLabel.className = "builder-setup-label";
-  htmlLabel.textContent = "Workbook HTML — paste this into your LMS page:";
   const htmlBox = document.createElement("textarea");
   htmlBox.id = "builder-workbook-html";
   htmlBox.readOnly = true;
-  htmlBox.value = workbookHtml(state.toConfig());
+  const config = state.toConfig();
+  if (config.id) {
+    htmlLabel.textContent = "Workbook HTML — paste this wherever it should appear:";
+    htmlBox.value = workbookHtml(config);
+  } else {
+    htmlLabel.textContent = "Workbook HTML — give the workbook a title above to generate it:";
+    htmlBox.value = "";
+  }
   htmlLabel.appendChild(htmlBox);
 
   const downloadPdfBtn = document.createElement("button");
@@ -105,6 +137,7 @@ export function renderPublishPanel(container, state, { onStatus } = {}) {
     onStatus?.(`Downloaded "${config.id}.pdf".`);
   });
 
+  container.appendChild(setupLabel);
   container.appendChild(htmlLabel);
   container.appendChild(downloadPdfBtn);
 }

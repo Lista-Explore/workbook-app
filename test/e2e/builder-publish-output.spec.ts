@@ -1,9 +1,12 @@
 import { test, expect } from "@playwright/test";
 
-test("the Workbook HTML box contains the actual, well-formatted rendered form — no publish step, no JSON", async ({
-  page,
-}) => {
+test("the Workbook HTML is real, well-formatted form markup — no JSON, no data payload", async ({ page }) => {
   await page.goto("/builder/index.html");
+
+  // The one-time setup points at the real, hosted CDN files.
+  const setup = await page.locator("#builder-setup-snippet").inputValue();
+  expect(setup).toContain("https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/styles.css");
+  expect(setup).toContain("https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/auto-mount.js");
 
   await page.fill("#builder-workbook-title", "Publish Test Workbook");
   await page.click("#builder-add-worksheet-btn");
@@ -13,18 +16,24 @@ test("the Workbook HTML box contains the actual, well-formatted rendered form �
   const fieldRow = sectionCard.locator(".builder-field-row").first();
   await fieldRow.locator(".builder-field-label-input").fill("Your name");
 
-  // The HTML box is the real, rendered form markup, updated live — not
-  // JSON, not a path to a file, and not gated behind any button.
   const htmlLocator = page.locator("#builder-workbook-html");
   await expect.poll(() => htmlLocator.inputValue()).toContain("Your name"); // wait out the async refresh
   const html = await htmlLocator.inputValue();
+
   expect(html).toContain('<label class="wb-field-label" for="');
   expect(html).toContain("Your name");
   expect(html).toContain('<input type="text"');
+  expect(html).not.toContain("<script");
+  expect(html).not.toContain("application/json");
   expect(html).not.toContain("data-workbook-config");
 
   // Well-formatted: indented, not a single unbroken line.
   const lines = html.split("\n");
   expect(lines.length).toBeGreaterThan(5);
   expect(lines.some((line) => line.startsWith("  "))).toBe(true);
+});
+
+test("the Workbook HTML box asks for a title before it can generate an id", async ({ page }) => {
+  await page.goto("/builder/index.html");
+  await expect(page.locator("#builder-workbook-html")).toHaveValue("");
 });

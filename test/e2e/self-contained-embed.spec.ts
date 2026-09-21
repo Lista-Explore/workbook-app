@@ -2,10 +2,14 @@ import { test, expect } from "@playwright/test";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-// Proves the literal claim: the "Workbook HTML" box in the Builder is real,
-// complete markup — paste it alone into a bare page and the form appears,
-// no JSON, no separate runtime file, no script.
-test("the Workbook HTML box is real markup that renders the form on its own", async ({ page }) => {
+// Proves the actual claim: paste the one-time setup (CSS + JS, both real,
+// hosted files) once, plus the plain Workbook HTML (no JSON, no data
+// payload) wherever it should appear, and the workbook is fully
+// interactive — autosave, PDF download, reset — because the script reads
+// the HTML that's already there, not any embedded config.
+test("the Workbook HTML is genuinely self-contained: plain markup + the runtime script, nothing else", async ({
+  page,
+}) => {
   await page.goto("/builder/index.html");
 
   await page.fill("#builder-workbook-title", "Self Contained Embed Test");
@@ -18,18 +22,42 @@ test("the Workbook HTML box is real markup that renders the form on its own", as
 
   const htmlLocator = page.locator("#builder-workbook-html");
   await expect.poll(() => htmlLocator.inputValue()).toContain("Your name"); // wait out the async refresh
-  const html = await htmlLocator.inputValue();
+  const mountHtml = await htmlLocator.inputValue();
+
+  const html = `<!doctype html>
+<html>
+  <head>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    ${mountHtml}
+    <script type="module" src="/src/auto-mount.js"></script>
+  </body>
+</html>`;
 
   const testPagePath = path.join(process.cwd(), "examples", "__self-contained-embed-test.html");
-  await fs.writeFile(testPagePath, `<!doctype html>\n<html>\n<body>\n${html}\n</body>\n</html>`);
+  await fs.writeFile(testPagePath, html);
 
   try {
     await page.goto("/examples/__self-contained-embed-test.html");
     const fieldInput = page.locator("input[type=text]").first();
     await expect(fieldInput).toBeVisible();
-    await expect(page.locator("label", { hasText: "Your name" })).toBeVisible();
     await fieldInput.fill("Test Student");
-    await expect(fieldInput).toHaveValue("Test Student");
+
+    // The download control came from the Runtime automatically — this page
+    // never wrote a single line of JS to wire it up, and the script had no
+    // config to read except the HTML itself.
+    await expect(page.locator("#wb-download-pdf-btn")).toBeVisible();
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.click("#wb-download-pdf-btn"),
+    ]);
+    expect(await download.path()).toBeTruthy();
+
+    // Autosave survives a reload, reading the value back from the same HTML.
+    await page.waitForTimeout(600);
+    await page.reload();
+    await expect(page.locator("input[type=text]").first()).toHaveValue("Test Student");
   } finally {
     await fs.unlink(testPagePath).catch(() => {});
   }
