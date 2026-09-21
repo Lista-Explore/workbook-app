@@ -1,10 +1,37 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import zlib from "node:zlib";
 import { PDFDocument, StandardFonts } from "../../src/vendor/pdf-lib.esm.js";
 import { exportWorkbookPdf, wrapText } from "../../src/pdf/pdf-export.js";
 
 function widgetRect(form, fieldName) {
   const field = form.getField(fieldName);
   return field.acroField.getWidgets()[0].getRectangle();
+}
+
+/** Decodes every Tj-drawn string on the PDF's first page into plain text, for asserting on drawn placeholder text. */
+async function extractPageText(bytes) {
+  const pdfDoc = await PDFDocument.load(bytes);
+  const page = pdfDoc.getPages()[0];
+  const entries = page.node.normalizedEntries();
+  const arr = entries.Contents.array || [entries.Contents];
+  let text = "";
+  for (const ref of arr) {
+    const stream = pdfDoc.context.lookup(ref);
+    const raw = stream.getContents();
+    let decoded;
+    try {
+      decoded = zlib.inflateSync(raw).toString("latin1");
+    } catch {
+      decoded = raw.toString("latin1");
+    }
+    for (const match of decoded.matchAll(/<([0-9A-Fa-f]+)>\s*Tj/g)) {
+      const hex = match[1];
+      let str = "";
+      for (let i = 0; i < hex.length; i += 2) str += String.fromCharCode(parseInt(hex.slice(i, i + 2), 16));
+      text += str + " ";
+    }
+  }
+  return text;
 }
 
 // A real, minimal 1x1 transparent PNG — small enough to inline, valid
@@ -202,16 +229,29 @@ describe("exportWorkbookPdf — image embedding", () => {
   });
 
   it("falls back to a text placeholder when the image can't be fetched, without failing the export", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 404 });
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 404, statusText: "Not Found" });
 
     const bytes = await exportWorkbookPdf(imageConfig, {});
     expect(bytes).toBeInstanceOf(Uint8Array);
     expect(bytes.length).toBeGreaterThan(0);
+
+    // The placeholder names the actual reason, not a mute "[image]" — so
+    // the failure is visible directly in the PDF, not something to guess at.
+    const text = await extractPageText(bytes);
+    expect(text).toContain("404");
   });
 
   it("falls back gracefully when fetch itself throws (e.g. offline)", async () => {
     global.fetch = vi.fn().mockRejectedValue(new Error("network down"));
 
     await expect(exportWorkbookPdf(imageConfig, {})).resolves.toBeInstanceOf(Uint8Array);
+  });
+
+  it("names a cross-origin block specifically, since that's the actual common cause (a message-less TypeError)", async () => {
+    global.fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+
+    const bytes = await exportWorkbookPdf(imageConfig, {});
+    const text = await extractPageText(bytes);
+    expect(text).toContain("cross-origin");
   });
 });

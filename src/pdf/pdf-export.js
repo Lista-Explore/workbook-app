@@ -14,11 +14,13 @@ const MAX_IMAGE_HEIGHT = 160;
  * front (embedding is async; the layout pass below is not), so drawing can
  * look up an already-embedded image by field id. A field whose image can't
  * be fetched or isn't a PNG/JPEG (the only formats pdf-lib can embed) maps
- * to `null` — draw falls back to a text placeholder for that one field
- * rather than failing the whole export.
+ * to `null` in `embedded`, with the actual reason recorded in `errors` — so
+ * the fallback placeholder can show *why* it failed (network error, a
+ * non-2xx status, wrong content type) instead of a mute "[image]".
  */
 async function embedImageFields(pdfDoc, config) {
   const embedded = new Map();
+  const errors = new Map();
   const jobs = [];
 
   for (const worksheet of config.worksheets || []) {
@@ -29,14 +31,27 @@ async function embedImageFields(pdfDoc, config) {
           (async () => {
             try {
               const res = await fetch(field.src);
-              if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
+              if (!res.ok) throw new Error(`server returned ${res.status} ${res.statusText || ""}`.trim());
               const contentType = (res.headers.get("content-type") || "").toLowerCase();
               const bytes = new Uint8Array(await res.arrayBuffer());
               const isPng = contentType.includes("png") || /\.png(\?|$)/i.test(field.src);
+              const isJpg = contentType.includes("jpeg") || contentType.includes("jpg") || /\.jpe?g(\?|$)/i.test(field.src);
+              if (!isPng && !isJpg) {
+                throw new Error(`unsupported image type (only PNG/JPEG can be embedded)${contentType ? `, got "${contentType}"` : ""}`);
+              }
               const image = isPng ? await pdfDoc.embedPng(bytes) : await pdfDoc.embedJpg(bytes);
               embedded.set(field.id, image);
-            } catch {
+            } catch (err) {
               embedded.set(field.id, null);
+              // A cross-origin fetch blocked by the image host shows up as
+              // a generic, message-less TypeError — that's the signature,
+              // not a bug in this code, so name it plainly instead of
+              // surfacing pdf-lib's opaque "Failed to fetch".
+              const reason =
+                err instanceof TypeError
+                  ? "the image's host blocked this from reading it (a cross-origin restriction on their end)"
+                  : err.message;
+              errors.set(field.id, reason);
             }
           })()
         );
@@ -45,7 +60,7 @@ async function embedImageFields(pdfDoc, config) {
   }
 
   await Promise.all(jobs);
-  return embedded;
+  return { embedded, errors };
 }
 
 /** Scales an embedded image to fit within `maxWidth`, capped at MAX_IMAGE_HEIGHT. */
@@ -81,14 +96,16 @@ export function wrapText(text, font, size, maxWidth) {
 
 const LINE_HEIGHT = 13;
 
-function fieldRowHeight(field, embeddedImages, font, width) {
+function fieldRowHeight(field, embeddedImages, font, width, imageErrors) {
   if (field.type === "image") {
     const image = embeddedImages?.get(field.id);
     if (image) {
       const { height } = scaledImageSize(image, CONTENT_WIDTH);
       return height + (field.caption ? 14 : 0);
     }
-    return 24; // placeholder-text fallback height
+    const reason = imageErrors?.get(field.id);
+    const text = `[image not embedded${reason ? `: ${reason}` : ""}]`;
+    return wrapText(text, font, 8, width).length * LINE_HEIGHT + 8;
   }
   if (field.type === "heading" || field.type === "instructions" || field.type === "statement") {
     const lines = wrapText(field.label, font, field.type === "heading" ? 12 : 10, width);
@@ -200,7 +217,7 @@ function drawField({ form, font, page, field, value, x, y, width }) {
 }
 
 /** Draws one field — an actual embedded image when available, its display-only text, or its form widget. */
-function drawFieldOrPlaceholder({ form, font, page, field, value, x, y, width, embeddedImages }) {
+function drawFieldOrPlaceholder({ form, font, page, field, value, x, y, width, embeddedImages, imageErrors }) {
   if (field.type === "image") {
     const image = embeddedImages?.get(field.id);
     if (image) {
@@ -211,11 +228,12 @@ function drawFieldOrPlaceholder({ form, font, page, field, value, x, y, width, e
       }
       return;
     }
-    // Fetch/embed failed (offline, unreachable URL, unsupported format) —
-    // fall back to a text placeholder so the PDF isn't silently missing
-    // content where an image was placed.
-    const text = field.caption || field.alt || "[image]";
-    page.drawText(text, { x, y, size: 9, font, color: rgb(0.4, 0.4, 0.4) });
+    // Fetch/embed failed — fall back to a text placeholder so the PDF
+    // isn't silently missing content, and say why it failed rather than a
+    // mute "[image]", so the actual cause is visible without guessing.
+    const reason = imageErrors?.get(field.id);
+    const text = `[image not embedded${reason ? `: ${reason}` : ""}]`;
+    drawWrappedText({ page, text, font, size: 8, x, y, width, color: rgb(0.55, 0.15, 0.15) });
     return;
   }
   if (field.type === "heading" || field.type === "instructions" || field.type === "statement") {
@@ -239,7 +257,7 @@ export async function exportWorkbookPdf(config, data) {
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const form = pdfDoc.getForm();
-  const embeddedImages = await embedImageFields(pdfDoc, config);
+  const { embedded: embeddedImages, errors: imageErrors } = await embedImageFields(pdfDoc, config);
 
   let page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   let y = PAGE_HEIGHT - MARGIN;
@@ -283,7 +301,7 @@ export async function exportWorkbookPdf(config, data) {
       const columnGroups = groupByColumn(fields, columnCount, (field) => field.column);
 
       const columnHeights = columnGroups.map((col) =>
-        col.reduce((sum, { item }) => sum + fieldRowHeight(item, embeddedImages, font, colWidth) + GAP, 0)
+        col.reduce((sum, { item }) => sum + fieldRowHeight(item, embeddedImages, font, colWidth, imageErrors) + GAP, 0)
       );
       const maxColumnHeight = Math.max(0, ...columnHeights);
       ensureSpace(maxColumnHeight);
@@ -306,8 +324,9 @@ export async function exportWorkbookPdf(config, data) {
             y: colY,
             width: colWidth,
             embeddedImages,
+            imageErrors,
           });
-          colY -= fieldRowHeight(field, embeddedImages, font, colWidth) + GAP;
+          colY -= fieldRowHeight(field, embeddedImages, font, colWidth, imageErrors) + GAP;
         }
 
         lowestY = Math.min(lowestY, colY);
