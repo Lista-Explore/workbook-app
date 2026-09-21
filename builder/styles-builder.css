@@ -372,21 +372,34 @@ input.builder-section-title-input:focus {
 .builder-field-list[data-columns="2"] {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0 1em;
-  align-items: start;
+  gap: 0;
+  align-items: stretch;
+  border: 1px solid var(--bd-border-strong);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .builder-field-list[data-columns="3"] {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 0 1em;
-  align-items: start;
+  gap: 0;
+  align-items: stretch;
+  border: 1px solid var(--bd-border-strong);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .builder-field-column {
   display: flex;
   flex-direction: column;
   gap: 0.6em;
+  padding: 0.8em;
+}
+
+/* Only the left edge — a border on every side would double up with the
+   outer grid border above and each neighboring column's own edge. */
+.builder-field-column + .builder-field-column {
+  border-left: 1px solid var(--bd-border-strong);
 }
 
 /* Same narrow-screen collapse as the Runtime — a thin grid column here
