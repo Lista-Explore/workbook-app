@@ -102,6 +102,46 @@ describe("exportWorkbookPdf — column layout", () => {
   });
 });
 
+describe("exportWorkbookPdf — form field font size (regression: auto-size (0) rendered huge in a tall multiline box)", () => {
+  it("gives every text field, dropdown, and long-text box an explicit font size, not the auto-size default", async () => {
+    const config = {
+      id: "wb-fontsize",
+      worksheets: [
+        {
+          id: "ws1",
+          sections: [
+            {
+              id: "s1",
+              fields: [
+                { id: "short", type: "short-text", label: "Short", column: 0 },
+                { id: "long", type: "long-text", label: "Long", column: 0 },
+                { id: "select", type: "dropdown", label: "Select", options: ["A", "B"], column: 0 },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const bytes = await exportWorkbookPdf(config, {});
+    const pdfDoc = await PDFDocument.load(bytes);
+    const form = pdfDoc.getForm();
+
+    for (const name of ["short", "long", "select"]) {
+      const field = form.getField(name);
+      const fontSize = field.acroField.getDefaultAppearance
+        ? field.acroField.getDefaultAppearance()
+        : undefined;
+      // The DA string embeds the font size as "... /Font <size> Tf ..." —
+      // asserting it's explicitly present and non-zero (not "0 Tf", which
+      // is the auto-size default that caused the oversized text).
+      expect(fontSize).toBeDefined();
+      expect(fontSize).not.toMatch(/\s0\s+Tf/);
+      expect(fontSize).toMatch(/\s10\s+Tf/);
+    }
+  });
+});
+
 describe("wrapText — regression: long text used to overflow its column into the next one", () => {
   it("never returns a line wider than maxWidth", async () => {
     const doc = await PDFDocument.create();

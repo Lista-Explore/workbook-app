@@ -183,6 +183,13 @@ function drawField({ form, font, page, field, value, x, y, width }) {
       tf.enableMultiline();
       if (value) tf.setText(String(value));
       tf.addToPage(page, { x, y: widgetY - 60, width, height: 64, font, borderWidth: 1 });
+      // setFontSize() needs a /DA entry to already exist, which addToPage()
+      // is what creates — must come after. Without an explicit size,
+      // pdf-lib leaves it at 0 ("auto"), and a PDF viewer then picks its
+      // own size to fill the widget, which for a tall multiline box with
+      // little text in it can render enormous. Match the label's size
+      // instead of leaving it to the viewer's guess.
+      tf.setFontSize(10);
       return;
     }
 
@@ -198,6 +205,7 @@ function drawField({ form, font, page, field, value, x, y, width }) {
       dd.addOptions(field.options || []);
       if (value) dd.select(value);
       dd.addToPage(page, { x, y: widgetY - 16, width, height: 18, font });
+      dd.setFontSize(10);
       return;
     }
 
@@ -233,6 +241,7 @@ function drawField({ form, font, page, field, value, x, y, width }) {
       const tf = form.createTextField(field.id);
       if (value != null) tf.setText(String(value));
       tf.addToPage(page, { x, y: widgetY - 16, width, height: 18, font, borderWidth: 1 });
+      tf.setFontSize(10);
       return;
     }
   }
