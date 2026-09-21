@@ -105,15 +105,21 @@ details.wb-section:not([open]) > summary.wb-section-title::before {
 .wb-section-fields[data-columns="2"] {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1.5em;
-  align-items: start;
+  gap: 0;
+  align-items: stretch;
+  border: 1px solid var(--wb-border-strong);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .wb-section-fields[data-columns="3"] {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 1.5em;
-  align-items: start;
+  gap: 0;
+  align-items: stretch;
+  border: 1px solid var(--wb-border-strong);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 /* On a narrow screen (a phone, or a narrow browser window) a 2/3-column
@@ -137,6 +143,14 @@ details.wb-section:not([open]) > summary.wb-section-title::before {
   display: flex;
   flex-direction: column;
   gap: 1.1em;
+  padding: 1.1em;
+}
+
+/* A cell border on every side would double up with its neighbors' borders
+   (and the outer grid border above) — only the left edge is needed, since
+   every column but the first sits directly against another cell there. */
+.wb-column + .wb-column {
+  border-left: 1px solid var(--wb-border-strong);
 }
 
 .wb-field-image img {

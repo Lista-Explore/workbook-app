@@ -362,6 +362,30 @@ export async function exportWorkbookPdf(config, data) {
         lowestY = Math.min(lowestY, colY);
       });
 
+      // A multi-column section gets a real border + column dividers, so it
+      // actually reads as a table instead of just floating groups of
+      // fields separated by whitespace.
+      if (columnCount > 1) {
+        const gridColor = rgb(0.82, 0.84, 0.87);
+        page.drawRectangle({
+          x: MARGIN,
+          y: lowestY,
+          width: CONTENT_WIDTH,
+          height: sectionStartY - lowestY,
+          borderColor: gridColor,
+          borderWidth: 1,
+        });
+        for (let colIndex = 1; colIndex < columnCount; colIndex++) {
+          const dividerX = MARGIN + colIndex * (colWidth + GAP) - GAP / 2;
+          page.drawLine({
+            start: { x: dividerX, y: sectionStartY },
+            end: { x: dividerX, y: lowestY },
+            color: gridColor,
+            thickness: 1,
+          });
+        }
+      }
+
       y = lowestY;
     }
   }
