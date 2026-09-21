@@ -6,8 +6,15 @@ import { registerAllFields } from "../../../src/fields/index.js";
 registerAllFields();
 
 // Real, hosted files — pushed to GitHub, served live by jsDelivr's CDN.
-const RUNTIME_CSS_URL = "https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/styles.css";
-const RUNTIME_JS_URL = "https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/auto-mount.js";
+// jsDelivr tells browsers to cache these for 7 days (independent of the
+// CDN's own edge cache, which a purge clears) — a plain @main URL means a
+// browser that already fetched the old file keeps using it for a week no
+// matter what gets pushed. RUNTIME_VERSION is bumped on every change to the
+// runtime files so the URL itself changes, forcing a fresh fetch. Bump this
+// whenever styles.css, auto-mount.js, or anything they import changes.
+const RUNTIME_VERSION = "4";
+const RUNTIME_CSS_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/styles.css?v=${RUNTIME_VERSION}`;
+const RUNTIME_JS_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/auto-mount.js?v=${RUNTIME_VERSION}`;
 
 /**
  * The one-time setup every LMS page with a workbook on it needs — two
