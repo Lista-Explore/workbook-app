@@ -57,41 +57,6 @@ test("a question can be reordered without deleting the ones around it", async ({
   await expect(sectionCard.locator(".builder-field-row").last().locator('[aria-label="Move question down"]')).toBeDisabled();
 });
 
-test("a new question can be inserted at a specific position without disturbing the ones around it", async ({ page }) => {
-  await page.goto("/builder/index.html");
-  await page.fill("#builder-workbook-title", "E2E Insert Workbook");
-  await page.click("#builder-add-worksheet-btn");
-  await page.click(".builder-add-section-btn");
-  const sectionCard = page.locator(".builder-section-card").first();
-
-  // Build a 100-question list — the exact scale the complaint was about —
-  // via the bottom "+ Add question" control.
-  for (let i = 1; i <= 100; i++) {
-    await sectionCard.locator(".builder-add-field-btn").click();
-    await sectionCard.locator(".builder-field-row").last().locator(".builder-field-label-input").fill(`Q${i}`);
-  }
-
-  const values = () => sectionCard.locator(".builder-field-label-input").evaluateAll((els) => els.map((e) => e.value));
-  await expect.poll(values, { timeout: 10000 }).toHaveLength(100);
-
-  // Insert a brand-new question directly after Q2 using THAT row's own
-  // insert button — one click, not delete-and-rebuild, not 98 "move up" clicks.
-  await sectionCard
-    .locator(".builder-field-row")
-    .nth(1)
-    .locator('[title="Insert a new question of the selected type right after this one"]')
-    .click();
-  await sectionCard.locator(".builder-field-row").nth(2).locator(".builder-field-label-input").fill("Inserted");
-
-  const result = await values();
-  expect(result).toHaveLength(101);
-  expect(result[0]).toBe("Q1");
-  expect(result[1]).toBe("Q2");
-  expect(result[2]).toBe("Inserted"); // landed right after Q2, not at the end
-  expect(result[3]).toBe("Q3");
-  expect(result[result.length - 1]).toBe("Q100"); // the tail is untouched
-});
-
 test("a 2-column section renders as two independent, STABLE vertical stacks, each with its own add button", async ({ page }) => {
   await page.goto("/builder/index.html");
   await page.fill("#builder-workbook-title", "E2E Columns Workbook");

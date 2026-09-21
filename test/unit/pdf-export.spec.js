@@ -142,6 +142,29 @@ describe("exportWorkbookPdf — form field font size (regression: auto-size (0) 
   });
 });
 
+describe("exportWorkbookPdf — multiple worksheets", () => {
+  it("gives each worksheet its own page, instead of cramming them onto the same one with no visual break", async () => {
+    const config = {
+      id: "wb-multi-ws",
+      worksheets: [
+        { id: "ws1", title: "First", sections: [{ id: "s1", fields: [{ id: "a", type: "short-text", label: "A", column: 0 }] }] },
+        { id: "ws2", title: "Second", sections: [{ id: "s2", fields: [{ id: "b", type: "short-text", label: "B", column: 0 }] }] },
+      ],
+    };
+
+    const bytes = await exportWorkbookPdf(config, {});
+    const pdfDoc = await PDFDocument.load(bytes);
+    expect(pdfDoc.getPageCount()).toBe(2);
+
+    const form = pdfDoc.getForm();
+    const aRect = widgetRect(form, "a");
+    const bRect = widgetRect(form, "b");
+    // Both start near the top of their own page, not one stacked below the
+    // other on a single shared page.
+    expect(Math.abs(aRect.y - bRect.y)).toBeLessThan(50);
+  });
+});
+
 describe("wrapText — regression: long text used to overflow its column into the next one", () => {
   it("never returns a line wider than maxWidth", async () => {
     const doc = await PDFDocument.create();

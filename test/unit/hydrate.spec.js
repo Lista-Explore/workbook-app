@@ -98,6 +98,30 @@ describe("hydrateWorkbook", () => {
     expect(mount.querySelector("#wb-download-pdf-btn")).not.toBeNull();
   });
 
+  it("clicking a worksheet tab actually switches panels (regression: static HTML serialization drops JS event listeners, so a pasted multi-worksheet workbook's tabs did nothing)", async () => {
+    const multiConfig = {
+      id: "hydrate-tabs",
+      worksheets: [
+        { id: "ws1", title: "First", sections: [{ id: "s1", fields: [{ id: "a", type: "short-text", label: "A", column: 0 }] }] },
+        { id: "ws2", title: "Second", sections: [{ id: "s2", fields: [{ id: "b", type: "short-text", label: "B", column: 0 }] }] },
+      ],
+    };
+    const mount = document.createElement("div");
+    mount.dataset.workbook = "hydrate-tabs";
+    renderWorkbook(multiConfig, mount);
+    document.body.appendChild(mount);
+    await hydrateWorkbook(mount);
+
+    const panels = mount.querySelectorAll(".wb-worksheet-panel");
+    expect(panels[0].hidden).toBe(false);
+    expect(panels[1].hidden).toBe(true);
+
+    mount.querySelectorAll(".wb-tab")[1].click();
+
+    expect(panels[0].hidden).toBe(true);
+    expect(panels[1].hidden).toBe(false);
+  });
+
   it("a typed value actually reaches the exported PDF (regression: worksheet id mismatch made every field blank)", async () => {
     const id = "hydrate-pdf-values";
     const mount = mountStatic(id);

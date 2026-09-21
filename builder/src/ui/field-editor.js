@@ -110,7 +110,7 @@ function createTypeSelect() {
   return select;
 }
 
-function renderFieldRow({ field, index, fieldCount, state, worksheetId, sectionId, typeSelect, onChange, onLightChange }) {
+function renderFieldRow({ field, index, fieldCount, state, worksheetId, sectionId, onChange, onLightChange }) {
   const row = document.createElement("div");
   row.className = "builder-field-row";
   row.dataset.fieldId = field.id;
@@ -204,20 +204,6 @@ function renderFieldRow({ field, index, fieldCount, state, worksheetId, sectionI
   });
   row.appendChild(removeBtn);
 
-  // Inserts right after THIS question, in the same column as this question
-  // — separate from the per-column "add to the end of this column" control
-  // below, which is always a end-of-stack append.
-  const insertBtn = document.createElement("button");
-  insertBtn.type = "button";
-  insertBtn.className = "builder-insert-field-btn";
-  insertBtn.textContent = "+ Insert question here";
-  insertBtn.title = "Insert a new question of the selected type right after this one";
-  insertBtn.addEventListener("click", () => {
-    state.addField(worksheetId, sectionId, buildDefaultFieldConfig(typeSelect.value, field.column), index + 1);
-    onChange();
-  });
-  row.appendChild(insertBtn);
-
   return row;
 }
 
@@ -266,7 +252,6 @@ export function renderFieldEditor(container, state, worksheetId, sectionId, sect
           state,
           worksheetId,
           sectionId,
-          typeSelect,
           onChange,
           onLightChange,
         })

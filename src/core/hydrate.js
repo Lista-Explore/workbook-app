@@ -4,6 +4,7 @@ import { renderWorkbookControls } from "./controls.js";
 import { exportWorkbookPdf } from "../pdf/pdf-export.js";
 import { importWorkbookPdf } from "../pdf/pdf-import.js";
 import { domToConfig } from "./dom-config.js";
+import { selectTab, showWorksheetPanel } from "./navigation.js";
 
 const AUTOSAVE_DELAY_MS = 400;
 
@@ -106,6 +107,22 @@ export async function hydrateWorkbook(rootEl) {
     setFieldValue(worksheetIdFor(rootEl, wrapper), wrapper.dataset.fieldId, field.getValue(wrapper));
     persist();
   });
+
+  // The mount div's static HTML has the same .wb-tab buttons and
+  // .wb-worksheet-panel elements the live Builder renders — but plain HTML
+  // serialization can't carry over JS event listeners, so a pasted,
+  // multi-worksheet workbook's tabs did nothing at all until rewired here.
+  const tabsNav = rootEl.querySelector(".wb-tabs");
+  if (tabsNav) {
+    const panels = Array.from(rootEl.querySelectorAll(".wb-worksheet-panel"));
+    tabsNav.querySelectorAll(".wb-tab").forEach((tab) => {
+      const index = Number(tab.dataset.workbookTabIndex);
+      tab.addEventListener("click", () => {
+        selectTab(tabsNav, index);
+        showWorksheetPanel(panels, index);
+      });
+    });
+  }
 
   const adapter = {
     config,

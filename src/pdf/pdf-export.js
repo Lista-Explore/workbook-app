@@ -305,7 +305,17 @@ export async function exportWorkbookPdf(config, data) {
     y -= 30;
   }
 
-  for (const worksheet of config.worksheets || []) {
+  (config.worksheets || []).forEach((worksheet, worksheetIndex) => {
+    // Each worksheet is its own tab on screen — fully separated. Cramming
+    // them together on the same PDF page (previous worksheet's last field
+    // directly against the next worksheet's heading, no visual break) read
+    // as cluttered; a fresh page per worksheet gives them the same real
+    // separation here.
+    if (worksheetIndex > 0) {
+      page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+      y = PAGE_HEIGHT - MARGIN;
+    }
+
     if (worksheet.title) {
       ensureSpace(22);
       page.drawText(worksheet.title, { x: MARGIN, y, size: 14, font: boldFont });
@@ -388,7 +398,7 @@ export async function exportWorkbookPdf(config, data) {
 
       y = lowestY;
     }
-  }
+  });
 
   return pdfDoc.save();
 }

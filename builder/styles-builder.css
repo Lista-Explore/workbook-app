@@ -516,15 +516,6 @@ input.builder-section-title-input:focus {
   border-color: var(--bd-border-strong);
 }
 
-.builder-insert-field-btn {
-  width: 100%;
-  background: transparent;
-  border-style: dashed;
-  color: var(--bd-muted);
-  font-size: 0.85em;
-}
-
-
 /* Get the code */
 
 .builder-setup-label {
