@@ -5,22 +5,24 @@ import { registerAllFields } from "../../../src/fields/index.js";
 
 registerAllFields();
 
-// The loader this points at (src/auto-mount.js) is deliberately trivial
-// and self-refreshing: it injects the real stylesheet + bundled runtime
-// with a fresh cache-busting timestamp on every page load, so once this
-// one line is pasted, it never needs to be pasted again — future fixes to
-// any part of the runtime just work, without fighting jsDelivr's 7-day
-// browser cache. RUNTIME_VERSION only needs bumping again if this loader
-// file's own logic ever has to change.
+// CSS: a plain, static line — bump RUNTIME_VERSION when styles.css changes
+// so the URL itself changes and browsers fetch it fresh, same as before.
+// JS: auto-mount.js is a self-refreshing loader — it injects the bundled
+// runtime with a fresh cache-busting timestamp on every page load, so that
+// line never needs to be pasted again after this.
 const RUNTIME_VERSION = "6";
+const RUNTIME_CSS_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/styles.css?v=${RUNTIME_VERSION}`;
 const RUNTIME_LOADER_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/auto-mount.js?v=${RUNTIME_VERSION}`;
 
 /**
- * The one-time setup every LMS page with a workbook on it needs — a single
- * line, pointing at the loader on jsDelivr's CDN.
+ * The one-time setup every LMS page with a workbook on it needs — two
+ * lines, pointing at the real Runtime files on jsDelivr's CDN.
  */
 export function setupSnippet() {
-  return `<script type="module" src="${RUNTIME_LOADER_URL}"></script>`;
+  return [
+    `<link rel="stylesheet" href="${RUNTIME_CSS_URL}" />`,
+    `<script type="module" src="${RUNTIME_LOADER_URL}"></script>`,
+  ].join("\n");
 }
 
 const VOID_ELEMENTS = new Set(["img", "input", "br", "hr"]);

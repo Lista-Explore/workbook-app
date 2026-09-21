@@ -5,22 +5,17 @@ describe("auto-mount.js — the one-time setup's loader", () => {
     document.head.innerHTML = "";
   });
 
-  it("injects a cache-busted stylesheet link and a cache-busted module script pointing at the CDN bundle", async () => {
+  it("injects a cache-busted module script pointing at the CDN bundle (CSS is its own separate <link> line, not injected)", async () => {
     const url = `../../src/auto-mount.js?t=${Math.random()}`;
     await import(/* @vite-ignore */ url);
 
-    const link = document.head.querySelector('link[rel="stylesheet"]');
     const script = document.head.querySelector("script[type=module]");
-
-    expect(link).not.toBeNull();
-    expect(link.href).toMatch(
-      /^https:\/\/cdn\.jsdelivr\.net\/gh\/Lista-Explore\/workbook-app@main\/src\/styles\.css\?t=\d+$/
-    );
-
     expect(script).not.toBeNull();
     expect(script.src).toMatch(
       /^https:\/\/cdn\.jsdelivr\.net\/gh\/Lista-Explore\/workbook-app@main\/src\/dist\/runtime\.bundle\.js\?t=\d+$/
     );
+
+    expect(document.head.querySelector('link[rel="stylesheet"]')).toBeNull();
   });
 
   it("uses a different cache-busting value on each load, so a browser can never reuse a stale cached copy", async () => {
