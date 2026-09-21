@@ -9,6 +9,12 @@ const MARGIN = 50;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 const GAP = 10;
 const MAX_IMAGE_HEIGHT = 160;
+// Matches the Runtime's .wb-column padding (1.1em ~= 16px) and its red
+// required-marker color (--wb-danger: #b42318) — a bordered multi-column
+// section should read like the on-screen table, not fields flush against
+// the divider lines with no breathing room.
+const COLUMN_PADDING = 14;
+const REQUIRED_COLOR = rgb(0.706, 0.137, 0.094);
 
 // Google's own font CDN — permanent, CORS-enabled (confirmed:
 // access-control-allow-origin: *), so these fetch identically whether this
@@ -118,7 +124,7 @@ export function wrapText(text, font, size, maxWidth) {
 
 const LINE_HEIGHT = 13;
 
-function fieldRowHeight(field, embeddedImages, font, width, imageErrors) {
+function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFont) {
   if (field.type === "image") {
     const image = embeddedImages?.get(field.id);
     if (image) {
@@ -130,12 +136,15 @@ function fieldRowHeight(field, embeddedImages, font, width, imageErrors) {
     return wrapText(text, font, 8, width).length * LINE_HEIGHT + 8;
   }
   if (field.type === "heading" || field.type === "instructions" || field.type === "statement") {
-    const lines = wrapText(field.label, font, field.type === "heading" ? 12 : 10, width);
+    const labelFont = field.type === "heading" ? boldFont || font : font;
+    const lines = wrapText(field.label, labelFont, field.type === "heading" ? 12 : 10, width);
     return lines.length * LINE_HEIGHT + 8;
   }
   // Every other field draws a wrapped label above its widget — reserve
-  // space for however many lines that label actually needs.
-  const labelLines = wrapText(field.label, font, 10, width).length;
+  // space for however many lines that label actually needs. Measured with
+  // the bold font it's actually drawn in, since bold glyphs are wider and
+  // can wrap a line earlier than the regular font would.
+  const labelLines = wrapText(field.label, boldFont || font, 10, width).length;
   const labelHeight = (labelLines - 1) * LINE_HEIGHT;
 
   if (field.type === "long-text") return 90 + labelHeight;
@@ -163,8 +172,23 @@ function drawWrappedText({ page, text, font, size, x, y, width, color }) {
   return lineY;
 }
 
-function drawField({ form, font, page, field, value, x, y, width }) {
-  const labelBottomY = drawWrappedText({ page, text: field.label || "", font, size: 10, x, y, width, color: rgb(0, 0, 0) });
+function drawFieldLabel({ page, field, boldFont, x, y, width }) {
+  const size = 10;
+  const lines = wrapText(field.label || "", boldFont, size, width);
+  let lineY = y;
+  lines.forEach((line, index) => {
+    page.drawText(line, { x, y: lineY, size, font: boldFont, color: rgb(0, 0, 0) });
+    if (field.required && index === lines.length - 1) {
+      const lineWidth = boldFont.widthOfTextAtSize(line, size);
+      page.drawText(" *", { x: x + lineWidth, y: lineY, size, font: boldFont, color: REQUIRED_COLOR });
+    }
+    lineY -= LINE_HEIGHT;
+  });
+  return lineY;
+}
+
+function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
+  const labelBottomY = drawFieldLabel({ page, field, boldFont, x, y, width });
   const widgetY = labelBottomY - 4;
 
   switch (field.type) {
@@ -248,7 +272,7 @@ function drawField({ form, font, page, field, value, x, y, width }) {
 }
 
 /** Draws one field — an actual embedded image when available, its display-only text, or its form widget. */
-function drawFieldOrPlaceholder({ form, font, page, field, value, x, y, width, embeddedImages, imageErrors }) {
+function drawFieldOrPlaceholder({ form, font, boldFont, page, field, value, x, y, width, embeddedImages, imageErrors }) {
   if (field.type === "image") {
     const image = embeddedImages?.get(field.id);
     if (image) {
@@ -268,10 +292,12 @@ function drawFieldOrPlaceholder({ form, font, page, field, value, x, y, width, e
     return;
   }
   if (field.type === "heading" || field.type === "instructions" || field.type === "statement") {
-    drawWrappedText({ page, text: field.label || "", font, size: field.type === "heading" ? 12 : 10, x, y, width, color: rgb(0, 0, 0) });
+    // .wb-heading is bold in the Runtime CSS; instructions/statement text is not.
+    const labelFont = field.type === "heading" ? boldFont : font;
+    drawWrappedText({ page, text: field.label || "", font: labelFont, size: field.type === "heading" ? 12 : 10, x, y, width, color: rgb(0, 0, 0) });
     return;
   }
-  drawField({ form, font, page, field, value, x, y, width });
+  drawField({ form, font, boldFont, page, field, value, x, y, width });
 }
 
 /**
@@ -334,6 +360,13 @@ export async function exportWorkbookPdf(config, data) {
       const columnCount = section.columns || 1;
       const fields = section.fields || [];
       const colWidth = (CONTENT_WIDTH - GAP * (columnCount - 1)) / columnCount;
+      // A bordered multi-column table needs its own inset so fields don't
+      // sit flush against the divider lines/outer border — a single-column
+      // section has no border to breathe away from, so it stays unpadded.
+      const padX = columnCount > 1 ? COLUMN_PADDING : 0;
+      const padTop = columnCount > 1 ? COLUMN_PADDING : 0;
+      const padBottom = columnCount > 1 ? COLUMN_PADDING : 0;
+      const innerWidth = colWidth - padX * 2;
 
       // Same stable, explicit-`field.column`-based grouping the Builder and
       // Runtime use — not a row-major slice of the flat field list, which
@@ -341,35 +374,36 @@ export async function exportWorkbookPdf(config, data) {
       const columnGroups = groupByColumn(fields, columnCount, (field) => field.column);
 
       const columnHeights = columnGroups.map((col) =>
-        col.reduce((sum, { item }) => sum + fieldRowHeight(item, embeddedImages, font, colWidth, imageErrors) + GAP, 0)
+        col.reduce((sum, { item }) => sum + fieldRowHeight(item, embeddedImages, font, innerWidth, imageErrors, boldFont) + GAP, 0)
       );
-      const maxColumnHeight = Math.max(0, ...columnHeights);
+      const maxColumnHeight = Math.max(0, ...columnHeights) + padTop + padBottom;
       ensureSpace(maxColumnHeight);
 
       const sectionStartY = y;
       let lowestY = sectionStartY;
 
       columnGroups.forEach((column, colIndex) => {
-        let colY = sectionStartY;
-        const x = MARGIN + colIndex * (colWidth + GAP);
+        let colY = sectionStartY - padTop;
+        const x = MARGIN + colIndex * (colWidth + GAP) + padX;
 
         for (const { item: field } of column) {
           drawFieldOrPlaceholder({
             form,
             font,
+            boldFont,
             page,
             field,
             value: wsValues[field.id],
             x,
             y: colY,
-            width: colWidth,
+            width: innerWidth,
             embeddedImages,
             imageErrors,
           });
-          colY -= fieldRowHeight(field, embeddedImages, font, colWidth, imageErrors) + GAP;
+          colY -= fieldRowHeight(field, embeddedImages, font, innerWidth, imageErrors, boldFont) + GAP;
         }
 
-        lowestY = Math.min(lowestY, colY);
+        lowestY = Math.min(lowestY, colY - padBottom);
       });
 
       // A multi-column section gets a real border + column dividers, so it
