@@ -7,8 +7,12 @@ test("the Workbook HTML is real, well-formatted form markup — no JSON, no data
   // pointing at the self-refreshing loader (which injects the bundled
   // runtime with a fresh cache-busting timestamp on every page load).
   const setup = await page.locator("#builder-setup-snippet").inputValue();
-  expect(setup).toContain("https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/styles.css");
-  expect(setup).toContain("https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/auto-mount.js");
+  // Commit-pinned, not "@main" — a branch URL can serve a stale commit on
+  // jsDelivr for a long time after a push, even with a cache-busting query.
+  expect(setup).toMatch(/https:\/\/cdn\.jsdelivr\.net\/gh\/Lista-Explore\/workbook-app@[0-9a-f]{40}\/src\/styles\.css/);
+  expect(setup).toMatch(
+    /https:\/\/cdn\.jsdelivr\.net\/gh\/Lista-Explore\/workbook-app@[0-9a-f]{40}\/src\/auto-mount\.js/
+  );
 
   await page.fill("#builder-workbook-title", "Publish Test Workbook");
   await page.click("#builder-add-worksheet-btn");

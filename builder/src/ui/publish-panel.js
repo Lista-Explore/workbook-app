@@ -5,14 +5,20 @@ import { registerAllFields } from "../../../src/fields/index.js";
 
 registerAllFields();
 
-// CSS: a plain, static line — bump RUNTIME_VERSION when styles.css changes
-// so the URL itself changes and browsers fetch it fresh, same as before.
-// JS: auto-mount.js is a self-refreshing loader — it injects the bundled
-// runtime with a fresh cache-busting timestamp on every page load, so that
-// line never needs to be pasted again after this.
-const RUNTIME_VERSION = "6";
-const RUNTIME_CSS_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/styles.css?v=${RUNTIME_VERSION}`;
-const RUNTIME_LOADER_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/auto-mount.js?v=${RUNTIME_VERSION}`;
+// Both lines are pinned to a specific commit, not the "@main" branch.
+// jsDelivr caches which commit "@main" currently resolves to separately
+// from (and far longer than) its per-file cache — a query-string
+// cache-buster on the file URL does nothing to bust that, so a plain
+// "@main" URL can silently keep serving an old commit's content for a long
+// time after a push. A commit-pinned URL has no resolution step to go
+// stale: it's correct the instant it's first requested, forever after.
+// RUNTIME_COMMIT must be updated (to the new commit's SHA) whenever
+// styles.css or auto-mount.js itself changes — auto-mount.js's own job is
+// to resolve the latest commit dynamically for the runtime bundle
+// underneath it, so that part doesn't need this same manual update.
+const RUNTIME_COMMIT = "a98183696456a41957102a7e11435d1a7ec566f6";
+const RUNTIME_CSS_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@${RUNTIME_COMMIT}/src/styles.css`;
+const RUNTIME_LOADER_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@${RUNTIME_COMMIT}/src/auto-mount.js`;
 
 /**
  * The one-time setup every LMS page with a workbook on it needs — two
