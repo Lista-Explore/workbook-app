@@ -19,7 +19,7 @@
   font-size: 15px;
   line-height: 1.5;
   color: var(--wb-text);
-  max-width: 760px;
+  width: 100%;
 }
 
 .lms-workbook * {

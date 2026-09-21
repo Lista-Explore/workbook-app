@@ -37,7 +37,11 @@ export function createErrorSlot(field) {
 export function applyCommonInputAttrs(input, field) {
   input.id = field.id;
   input.name = field.id;
-  if (field.required) input.required = true;
+  // Not the native `required` attribute: this widget can end up embedded
+  // inside a host page's own <form> (e.g. an LMS's page editor), where a
+  // native `required` on our input blocks THAT form's submit/save — not
+  // just ours. Validation is enforced separately via validate()/wb-field-error.
+  if (field.required) input.setAttribute("aria-required", "true");
   if (field.placeholder) input.placeholder = field.placeholder;
 }
 

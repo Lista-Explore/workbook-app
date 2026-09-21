@@ -20,7 +20,7 @@ export const radio = {
       input.name = field.id;
       input.id = optionId;
       input.value = option;
-      if (field.required) input.required = true;
+      if (field.required) input.setAttribute("aria-required", "true");
       if (value === option) input.checked = true;
 
       const optLabel = document.createElement("label");
