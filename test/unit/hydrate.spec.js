@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
 import { renderWorkbook } from "../../src/core/renderer.js";
 import { registerAllFields } from "../../src/fields/index.js";
-import { hydrateWorkbook } from "../../src/core/hydrate.js";
+import { hydrateWorkbook, hydrateAllWorkbooks } from "../../src/core/hydrate.js";
 import { createWorkbookStorage } from "../../src/core/storage.js";
 
 beforeAll(() => {
@@ -85,11 +85,28 @@ describe("hydrateWorkbook", () => {
     expect(mount.querySelector("#name").value).toBe("");
   });
 
-  it("does nothing for an element with no data-workbook id", async () => {
+  it("still hydrates when data-workbook is missing, falling back to the title", async () => {
     const mount = document.createElement("div");
-    renderWorkbook(config(""), mount);
-    delete mount.dataset.workbook;
+    mount.className = "lms-workbook";
+    renderWorkbook(config("hydrate-no-attr"), mount);
+    delete mount.dataset.workbook; // simulates a page editor stripping the attribute
+    document.body.appendChild(mount);
+
     const result = await hydrateWorkbook(mount);
-    expect(result).toBeNull();
+    expect(result).not.toBeNull();
+    expect(mount.querySelector("#wb-download-pdf-btn")).not.toBeNull();
+  });
+
+  it("hydrateAllWorkbooks doesn't let a malformed workbook block the others on the page", async () => {
+    const broken = document.createElement("div");
+    broken.className = "lms-workbook";
+    broken.dataset.workbook = "broken";
+    document.body.appendChild(broken);
+
+    const good = mountStatic("hydrate-good");
+
+    const results = await hydrateAllWorkbooks(document);
+    expect(results.length).toBeGreaterThanOrEqual(2);
+    expect(good.querySelector("#wb-download-pdf-btn")).not.toBeNull();
   });
 });

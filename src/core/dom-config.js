@@ -1,3 +1,5 @@
+import { slugify } from "./id-generator.js";
+
 /**
  * Reconstructs a workbook config object by reading the already-rendered
  * static HTML — the inverse of renderWorkbook(). This exists so the Runtime
@@ -86,9 +88,12 @@ function sectionConfigFromEl(sectionEl) {
 
 /** Reconstructs a full workbook config from a mounted `.lms-workbook` element. */
 export function domToConfig(rootEl) {
-  const id = rootEl.dataset.workbook || "";
   const titleEl = rootEl.querySelector(".wb-title");
   const title = titleEl ? titleEl.textContent.trim() : "";
+  // Some page editors strip data-* attributes they don't recognize. Falling
+  // back to the title keeps storage/PDF working even if data-workbook was
+  // stripped — only a title-less, id-less workbook can't be identified.
+  const id = rootEl.dataset.workbook || slugify(title);
 
   const tabs = Array.from(rootEl.querySelectorAll(".wb-tab"));
   const panels = Array.from(rootEl.querySelectorAll(".wb-worksheet-panel"));

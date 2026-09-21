@@ -110,12 +110,23 @@ export async function hydrateWorkbook(rootEl) {
   return adapter;
 }
 
-/** Hydrates every `.lms-workbook[data-workbook]` element on the page. */
+/**
+ * Hydrates every `.lms-workbook` element on the page. Doesn't require
+ * `data-workbook` on the element — some page editors strip attributes they
+ * don't recognize, and domToConfig() already falls back to the title in
+ * that case. A failure hydrating one workbook is logged and skipped rather
+ * than aborting the rest of the page.
+ */
 export async function hydrateAllWorkbooks(root = document) {
-  const roots = root.querySelectorAll(".lms-workbook[data-workbook]");
+  const roots = root.querySelectorAll(".lms-workbook");
   const results = [];
   for (const el of roots) {
-    results.push(await hydrateWorkbook(el));
+    try {
+      results.push(await hydrateWorkbook(el));
+    } catch (err) {
+      console.error("Failed to hydrate a workbook:", err);
+      results.push(null);
+    }
   }
   return results;
 }
