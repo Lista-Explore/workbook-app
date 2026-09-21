@@ -5,28 +5,22 @@ import { registerAllFields } from "../../../src/fields/index.js";
 
 registerAllFields();
 
-// Real, hosted files — pushed to GitHub, served live by jsDelivr's CDN.
-// jsDelivr tells browsers to cache these for 7 days (independent of the
-// CDN's own edge cache, which a purge clears) — a plain @main URL means a
-// browser that already fetched the old file keeps using it for a week no
-// matter what gets pushed. RUNTIME_VERSION is bumped on every change to the
-// runtime files so the URL itself changes, forcing a fresh fetch. Bump this
-// whenever styles.css, auto-mount.js, or anything they import changes.
-const RUNTIME_VERSION = "5";
-const RUNTIME_CSS_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/styles.css?v=${RUNTIME_VERSION}`;
-const RUNTIME_JS_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/auto-mount.js?v=${RUNTIME_VERSION}`;
+// The loader this points at (src/auto-mount.js) is deliberately trivial
+// and self-refreshing: it injects the real stylesheet + bundled runtime
+// with a fresh cache-busting timestamp on every page load, so once this
+// one line is pasted, it never needs to be pasted again — future fixes to
+// any part of the runtime just work, without fighting jsDelivr's 7-day
+// browser cache. RUNTIME_VERSION only needs bumping again if this loader
+// file's own logic ever has to change.
+const RUNTIME_VERSION = "6";
+const RUNTIME_LOADER_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/auto-mount.js?v=${RUNTIME_VERSION}`;
 
 /**
- * The one-time setup every LMS page with a workbook on it needs — two
- * lines, pointing at the real Runtime files on jsDelivr's CDN. The script
- * reads the workbook HTML that's already on the page (no JSON) and adds
- * autosave, restore, and the download/upload/reset controls to it.
+ * The one-time setup every LMS page with a workbook on it needs — a single
+ * line, pointing at the loader on jsDelivr's CDN.
  */
 export function setupSnippet() {
-  return [
-    `<link rel="stylesheet" href="${RUNTIME_CSS_URL}" />`,
-    `<script type="module" src="${RUNTIME_JS_URL}"></script>`,
-  ].join("\n");
+  return `<script type="module" src="${RUNTIME_LOADER_URL}"></script>`;
 }
 
 const VOID_ELEMENTS = new Set(["img", "input", "br", "hr"]);

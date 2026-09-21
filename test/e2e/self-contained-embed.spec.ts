@@ -2,11 +2,14 @@ import { test, expect } from "@playwright/test";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-// Proves the actual claim: paste the one-time setup (CSS + JS, both real,
-// hosted files) once, plus the plain Workbook HTML (no JSON, no data
-// payload) wherever it should appear, and the workbook is fully
-// interactive — autosave, PDF download, reset — because the script reads
-// the HTML that's already there, not any embedded config.
+// Proves the actual claim: paste the one-time setup (CSS + JS) once, plus
+// the plain Workbook HTML (no JSON, no data payload) wherever it should
+// appear, and the workbook is fully interactive — autosave, PDF download,
+// reset — because the script reads the HTML that's already there, not any
+// embedded config. Uses runtime-entry.js (the actual hydration logic)
+// directly rather than going through auto-mount.js's CDN redirect, so this
+// stays a local, network-independent test — the CDN delivery layer itself
+// is verified separately against the live jsDelivr URLs.
 test("the Workbook HTML is genuinely self-contained: plain markup + the runtime script, nothing else", async ({
   page,
 }) => {
@@ -31,7 +34,7 @@ test("the Workbook HTML is genuinely self-contained: plain markup + the runtime 
   </head>
   <body>
     ${mountHtml}
-    <script type="module" src="/src/auto-mount.js"></script>
+    <script type="module" src="/src/runtime-entry.js"></script>
   </body>
 </html>`;
 

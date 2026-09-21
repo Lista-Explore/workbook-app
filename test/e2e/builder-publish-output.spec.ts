@@ -3,10 +3,12 @@ import { test, expect } from "@playwright/test";
 test("the Workbook HTML is real, well-formatted form markup — no JSON, no data payload", async ({ page }) => {
   await page.goto("/builder/index.html");
 
-  // The one-time setup points at the real, hosted CDN files.
+  // The one-time setup is a single line pointing at the self-refreshing
+  // loader — it injects the real CSS + bundled runtime itself, so nothing
+  // else needs to be on the page.
   const setup = await page.locator("#builder-setup-snippet").inputValue();
-  expect(setup).toContain("https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/styles.css");
   expect(setup).toContain("https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/auto-mount.js");
+  expect(setup).not.toContain("<link");
 
   await page.fill("#builder-workbook-title", "Publish Test Workbook");
   await page.click("#builder-add-worksheet-btn");

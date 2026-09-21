@@ -1,10 +1,19 @@
-import { registerAllFields } from "./fields/index.js";
-import { hydrateAllWorkbooks } from "./core/hydrate.js";
+// The one line that goes in the Builder's "One-time setup" — and the only
+// one that should ever need to be pasted there again. This file itself
+// stays trivial and essentially never changes; its only job is to inject a
+// freshly cache-busted <script> tag pointing at the real, bundled runtime,
+// on every single page load. That means a future fix to any part of the
+// runtime (styles, field types, PDF export, anything) takes effect the
+// next time the page loads — no re-pasting, no browser cache to fight.
+const BASE = "https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src";
+const bust = Date.now();
 
-// The CDN <script> include in the Builder's "One-time setup". The Workbook
-// HTML the Builder gives you is already a real, rendered form — no JSON, no
-// config to load. This just adds behavior to it: restores previously saved
-// answers, autosaves on every change, and adds the download/upload/reset
-// controls, all by reading the HTML that's already there.
-registerAllFields();
-hydrateAllWorkbooks();
+const link = document.createElement("link");
+link.rel = "stylesheet";
+link.href = `${BASE}/styles.css?t=${bust}`;
+document.head.appendChild(link);
+
+const script = document.createElement("script");
+script.type = "module";
+script.src = `${BASE}/dist/runtime.bundle.js?t=${bust}`;
+document.head.appendChild(script);
