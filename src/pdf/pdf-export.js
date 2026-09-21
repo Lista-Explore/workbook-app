@@ -54,7 +54,34 @@ function scaledImageSize(image, maxWidth) {
   return { width: image.width * ratio, height: image.height * ratio };
 }
 
-function fieldRowHeight(field, embeddedImages) {
+/**
+ * Breaks `text` into lines that each fit within `maxWidth` at the given
+ * font/size — without this, a label or instructions text longer than its
+ * column runs straight past the column boundary and visually overlaps
+ * whatever is in the next column, since drawText() never wraps on its own.
+ */
+export function wrapText(text, font, size, maxWidth) {
+  const words = String(text || "").split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [""];
+
+  const lines = [];
+  let line = words[0];
+  for (const word of words.slice(1)) {
+    const candidate = `${line} ${word}`;
+    if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+      line = candidate;
+    } else {
+      lines.push(line);
+      line = word;
+    }
+  }
+  lines.push(line);
+  return lines;
+}
+
+const LINE_HEIGHT = 13;
+
+function fieldRowHeight(field, embeddedImages, font, width) {
   if (field.type === "image") {
     const image = embeddedImages?.get(field.id);
     if (image) {
@@ -63,14 +90,21 @@ function fieldRowHeight(field, embeddedImages) {
     }
     return 24; // placeholder-text fallback height
   }
-  if (field.type === "long-text") return 90;
-  if (field.type === "heading") return 28;
-  if (field.type === "instructions" || field.type === "statement") return 34;
+  if (field.type === "heading" || field.type === "instructions" || field.type === "statement") {
+    const lines = wrapText(field.label, font, field.type === "heading" ? 12 : 10, width);
+    return lines.length * LINE_HEIGHT + 8;
+  }
+  // Every other field draws a wrapped label above its widget — reserve
+  // space for however many lines that label actually needs.
+  const labelLines = wrapText(field.label, font, 10, width).length;
+  const labelHeight = (labelLines - 1) * LINE_HEIGHT;
+
+  if (field.type === "long-text") return 90 + labelHeight;
   if (field.type === "radio" || field.type === "checkbox-group") {
     const count = (field.options || []).length || 1;
-    return 20 + count * 16;
+    return 20 + count * 16 + labelHeight;
   }
-  return 40;
+  return 40 + labelHeight;
 }
 
 /**
@@ -80,10 +114,19 @@ function fieldRowHeight(field, embeddedImages) {
  * checklist). File fields are skipped: browsers cannot restore a File into
  * a template, so there is nothing meaningful to export for them.
  */
+function drawWrappedText({ page, text, font, size, x, y, width, color }) {
+  const lines = wrapText(text, font, size, width);
+  let lineY = y;
+  for (const line of lines) {
+    page.drawText(line, { x, y: lineY, size, font, color });
+    lineY -= LINE_HEIGHT;
+  }
+  return lineY;
+}
+
 function drawField({ form, font, page, field, value, x, y, width }) {
-  const labelY = y;
-  page.drawText(field.label || "", { x, y: labelY, size: 10, font, color: rgb(0, 0, 0) });
-  const widgetY = labelY - 16;
+  const labelBottomY = drawWrappedText({ page, text: field.label || "", font, size: 10, x, y, width, color: rgb(0, 0, 0) });
+  const widgetY = labelBottomY - 4;
 
   switch (field.type) {
     case "heading":
@@ -175,8 +218,8 @@ function drawFieldOrPlaceholder({ form, font, page, field, value, x, y, width, e
     page.drawText(text, { x, y, size: 9, font, color: rgb(0.4, 0.4, 0.4) });
     return;
   }
-  if (DISPLAY_ONLY_FIELD_TYPES.has(field.type) && field.type !== "heading") {
-    page.drawText(field.label || "", { x, y, size: 10, font });
+  if (field.type === "heading" || field.type === "instructions" || field.type === "statement") {
+    drawWrappedText({ page, text: field.label || "", font, size: field.type === "heading" ? 12 : 10, x, y, width, color: rgb(0, 0, 0) });
     return;
   }
   drawField({ form, font, page, field, value, x, y, width });
@@ -215,9 +258,11 @@ export async function exportWorkbookPdf(config, data) {
   }
 
   for (const worksheet of config.worksheets || []) {
-    ensureSpace(22);
-    page.drawText(worksheet.title || "", { x: MARGIN, y, size: 14, font: boldFont });
-    y -= 24;
+    if (worksheet.title) {
+      ensureSpace(22);
+      page.drawText(worksheet.title, { x: MARGIN, y, size: 14, font: boldFont });
+      y -= 24;
+    }
 
     const wsValues = worksheetsData[worksheet.id] || {};
 
@@ -238,7 +283,7 @@ export async function exportWorkbookPdf(config, data) {
       const columnGroups = groupByColumn(fields, columnCount, (field) => field.column);
 
       const columnHeights = columnGroups.map((col) =>
-        col.reduce((sum, { item }) => sum + fieldRowHeight(item, embeddedImages) + GAP, 0)
+        col.reduce((sum, { item }) => sum + fieldRowHeight(item, embeddedImages, font, colWidth) + GAP, 0)
       );
       const maxColumnHeight = Math.max(0, ...columnHeights);
       ensureSpace(maxColumnHeight);
@@ -262,7 +307,7 @@ export async function exportWorkbookPdf(config, data) {
             width: colWidth,
             embeddedImages,
           });
-          colY -= fieldRowHeight(field, embeddedImages) + GAP;
+          colY -= fieldRowHeight(field, embeddedImages, font, colWidth) + GAP;
         }
 
         lowestY = Math.min(lowestY, colY);

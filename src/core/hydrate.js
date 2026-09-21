@@ -21,6 +21,20 @@ function fieldWrappers(rootEl) {
 }
 
 /**
+ * The worksheet id a field wrapper belongs to — `worksheet-${index}`,
+ * matching exactly how domToConfig() ids worksheets (by their position
+ * among `.wb-worksheet-panel` elements). Values must be stored under this
+ * same key, or exportWorkbookPdf()/importWorkbookPdf() — which look values
+ * up by `worksheet.id` — silently find nothing and export a blank PDF.
+ */
+function worksheetIdFor(rootEl, wrapper) {
+  const panel = wrapper.closest(".wb-worksheet-panel");
+  const panels = Array.from(rootEl.querySelectorAll(".wb-worksheet-panel"));
+  const index = panel ? panels.indexOf(panel) : 0;
+  return `worksheet-${Math.max(index, 0)}`;
+}
+
+/**
  * Adds real behavior to an already-rendered `.lms-workbook` element: restores
  * previously saved answers, autosaves on every change, and appends the
  * download/upload/reset controls — all driven by reading the DOM itself
@@ -43,9 +57,9 @@ export async function hydrateWorkbook(rootEl) {
     return undefined;
   }
 
-  function setFieldValue(fieldId, value) {
-    if (!data.worksheets.default) data.worksheets.default = {};
-    data.worksheets.default[fieldId] = value;
+  function setFieldValue(worksheetId, fieldId, value) {
+    if (!data.worksheets[worksheetId]) data.worksheets[worksheetId] = {};
+    data.worksheets[worksheetId][fieldId] = value;
   }
 
   const wrappers = fieldWrappers(rootEl);
@@ -65,7 +79,7 @@ export async function hydrateWorkbook(rootEl) {
     const type = wrapper.dataset.fieldType;
     if (!FieldRegistry.has(type)) return;
     const field = FieldRegistry.get(type);
-    setFieldValue(wrapper.dataset.fieldId, field.getValue(wrapper));
+    setFieldValue(worksheetIdFor(rootEl, wrapper), wrapper.dataset.fieldId, field.getValue(wrapper));
     persist();
   });
   rootEl.addEventListener("change", (event) => {
@@ -74,7 +88,7 @@ export async function hydrateWorkbook(rootEl) {
     const type = wrapper.dataset.fieldType;
     if (!FieldRegistry.has(type)) return;
     const field = FieldRegistry.get(type);
-    setFieldValue(wrapper.dataset.fieldId, field.getValue(wrapper));
+    setFieldValue(worksheetIdFor(rootEl, wrapper), wrapper.dataset.fieldId, field.getValue(wrapper));
     persist();
   });
 

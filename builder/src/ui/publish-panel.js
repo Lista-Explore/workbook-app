@@ -12,7 +12,7 @@ registerAllFields();
 // matter what gets pushed. RUNTIME_VERSION is bumped on every change to the
 // runtime files so the URL itself changes, forcing a fresh fetch. Bump this
 // whenever styles.css, auto-mount.js, or anything they import changes.
-const RUNTIME_VERSION = "4";
+const RUNTIME_VERSION = "5";
 const RUNTIME_CSS_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/styles.css?v=${RUNTIME_VERSION}`;
 const RUNTIME_JS_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@main/src/auto-mount.js?v=${RUNTIME_VERSION}`;
 

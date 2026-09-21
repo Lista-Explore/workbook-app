@@ -3,6 +3,7 @@ import { renderWorkbook } from "../../src/core/renderer.js";
 import { registerAllFields } from "../../src/fields/index.js";
 import { hydrateWorkbook, hydrateAllWorkbooks } from "../../src/core/hydrate.js";
 import { createWorkbookStorage } from "../../src/core/storage.js";
+import { PDFDocument } from "../../src/vendor/pdf-lib.esm.js";
 
 beforeAll(() => {
   registerAllFields();
@@ -55,7 +56,7 @@ describe("hydrateWorkbook", () => {
 
     await vi.waitFor(async () => {
       const saved = await createWorkbookStorage(id).get("state");
-      expect(saved?.worksheets?.default?.name).toBe("Ada");
+      expect(saved?.worksheets?.["worksheet-0"]?.name).toBe("Ada");
     });
 
     // Simulate a fresh page load: render the same static HTML again, hydrate again.
@@ -74,7 +75,7 @@ describe("hydrateWorkbook", () => {
     input.dispatchEvent(new Event("input", { bubbles: true }));
     await vi.waitFor(async () => {
       const saved = await createWorkbookStorage(id).get("state");
-      expect(saved?.worksheets?.default?.name).toBe("Ada");
+      expect(saved?.worksheets?.["worksheet-0"]?.name).toBe("Ada");
     });
 
     mount.querySelector("#wb-reset-btn").click();
@@ -95,6 +96,21 @@ describe("hydrateWorkbook", () => {
     const result = await hydrateWorkbook(mount);
     expect(result).not.toBeNull();
     expect(mount.querySelector("#wb-download-pdf-btn")).not.toBeNull();
+  });
+
+  it("a typed value actually reaches the exported PDF (regression: worksheet id mismatch made every field blank)", async () => {
+    const id = "hydrate-pdf-values";
+    const mount = mountStatic(id);
+    const adapter = await hydrateWorkbook(mount);
+
+    const input = mount.querySelector("#name");
+    input.value = "Ada Lovelace";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const bytes = await adapter.exportPDF();
+    const pdfDoc = await PDFDocument.load(bytes);
+    const field = pdfDoc.getForm().getTextField("name");
+    expect(field.getText()).toBe("Ada Lovelace");
   });
 
   it("hydrateAllWorkbooks doesn't let a malformed workbook block the others on the page", async () => {

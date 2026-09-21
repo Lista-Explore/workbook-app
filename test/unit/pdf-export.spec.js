@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { PDFDocument } from "../../src/vendor/pdf-lib.esm.js";
-import { exportWorkbookPdf } from "../../src/pdf/pdf-export.js";
+import { PDFDocument, StandardFonts } from "../../src/vendor/pdf-lib.esm.js";
+import { exportWorkbookPdf, wrapText } from "../../src/pdf/pdf-export.js";
 
 function widgetRect(form, fieldName) {
   const field = form.getField(fieldName);
@@ -99,6 +99,62 @@ describe("exportWorkbookPdf — column layout", () => {
 
     // "right-1" is its own column, at a different x than the left column.
     expect(right1.x).toBeGreaterThan(left1.x);
+  });
+});
+
+describe("wrapText — regression: long text used to overflow its column into the next one", () => {
+  it("never returns a line wider than maxWidth", async () => {
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const text = "Here are questions and add them so i can move to next section, this is a long sentence";
+    const maxWidth = 200;
+
+    const lines = wrapText(text, font, 10, maxWidth);
+    expect(lines.length).toBeGreaterThan(1);
+    for (const line of lines) {
+      expect(font.widthOfTextAtSize(line, 10)).toBeLessThanOrEqual(maxWidth);
+    }
+    // Every word survives the wrap — nothing dropped.
+    expect(lines.join(" ")).toBe(text);
+  });
+
+  it("a long instructions field reserves more vertical space than a short one, instead of a fixed height that ignores wrapping", async () => {
+    const instructionsField = (label) => ({
+      id: "instructions-field",
+      type: "instructions",
+      label,
+      column: 0,
+    });
+    const buildConfig = (label) => ({
+      id: "wb-wrap",
+      worksheets: [
+        {
+          id: "ws1",
+          sections: [
+            {
+              id: "s1",
+              columns: 1,
+              fields: [instructionsField(label), { id: "after", type: "short-text", label: "After", column: 0 }],
+            },
+          ],
+        },
+      ],
+    });
+
+    const shortBytes = await exportWorkbookPdf(buildConfig("Short."), {});
+    const shortAfterRect = widgetRect((await PDFDocument.load(shortBytes)).getForm(), "after");
+
+    const longBytes = await exportWorkbookPdf(
+      buildConfig(
+        "Here are questions and add them so i can move to next section, this is a long sentence that must wrap across several lines instead of running off the page."
+      ),
+      {}
+    );
+    const longAfterRect = widgetRect((await PDFDocument.load(longBytes)).getForm(), "after");
+
+    // The long paragraph needs several wrapped lines' worth of room above
+    // "after" — with the old fixed-height assumption these would match.
+    expect(longAfterRect.y).toBeLessThan(shortAfterRect.y);
   });
 });
 
