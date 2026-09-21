@@ -211,7 +211,13 @@ details.wb-section:not([open]) > summary.wb-section-title::before {
 
 .wb-field textarea {
   resize: vertical;
-  font-family: inherit;
+  /* !important: a host page's own stylesheet commonly targets bare
+     `textarea` with higher specificity than our `.wb-field textarea`
+     selector, which can silently override the font-size/family set above
+     — matching sizing with the other inputs is worth pinning down hard. */
+  font-family: inherit !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
 }
 
 .wb-field-error {

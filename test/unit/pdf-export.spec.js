@@ -1,37 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import zlib from "node:zlib";
 import { PDFDocument, StandardFonts } from "../../src/vendor/pdf-lib.esm.js";
-import { exportWorkbookPdf, wrapText } from "../../src/pdf/pdf-export.js";
+import { exportWorkbookPdf, wrapText, embedImageFields } from "../../src/pdf/pdf-export.js";
 
 function widgetRect(form, fieldName) {
   const field = form.getField(fieldName);
   return field.acroField.getWidgets()[0].getRectangle();
-}
-
-/** Decodes every Tj-drawn string on the PDF's first page into plain text, for asserting on drawn placeholder text. */
-async function extractPageText(bytes) {
-  const pdfDoc = await PDFDocument.load(bytes);
-  const page = pdfDoc.getPages()[0];
-  const entries = page.node.normalizedEntries();
-  const arr = entries.Contents.array || [entries.Contents];
-  let text = "";
-  for (const ref of arr) {
-    const stream = pdfDoc.context.lookup(ref);
-    const raw = stream.getContents();
-    let decoded;
-    try {
-      decoded = zlib.inflateSync(raw).toString("latin1");
-    } catch {
-      decoded = raw.toString("latin1");
-    }
-    for (const match of decoded.matchAll(/<([0-9A-Fa-f]+)>\s*Tj/g)) {
-      const hex = match[1];
-      let str = "";
-      for (let i = 0; i < hex.length; i += 2) str += String.fromCharCode(parseInt(hex.slice(i, i + 2), 16));
-      text += str + " ";
-    }
-  }
-  return text;
 }
 
 // A real, minimal 1x1 transparent PNG — small enough to inline, valid
@@ -211,12 +184,22 @@ describe("exportWorkbookPdf — image embedding", () => {
     ],
   };
 
+  // Font embedding (Poppins) fetches from fonts.gstatic.com regardless of
+  // the test — these mocks only fake the *image* fetch, and pass every
+  // other URL (the font files) through to the real network.
+  function mockImageFetch(imageResponder) {
+    global.fetch = vi.fn((url) => {
+      if (url === "https://example.com/pic.png") return imageResponder(url);
+      return originalFetch(url);
+    });
+  }
+
   it("embeds the actual image when it can be fetched (not just a text placeholder)", async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    mockImageFetch(async () => ({
       ok: true,
       headers: { get: () => "image/png" },
       arrayBuffer: async () => pngBytes().buffer,
-    });
+    }));
 
     const bytes = await exportWorkbookPdf(imageConfig, {});
     const pdfDoc = await PDFDocument.load(bytes);
@@ -229,29 +212,43 @@ describe("exportWorkbookPdf — image embedding", () => {
   });
 
   it("falls back to a text placeholder when the image can't be fetched, without failing the export", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 404, statusText: "Not Found" });
+    mockImageFetch(async () => ({ ok: false, status: 404, statusText: "Not Found" }));
 
     const bytes = await exportWorkbookPdf(imageConfig, {});
     expect(bytes).toBeInstanceOf(Uint8Array);
     expect(bytes.length).toBeGreaterThan(0);
-
-    // The placeholder names the actual reason, not a mute "[image]" — so
-    // the failure is visible directly in the PDF, not something to guess at.
-    const text = await extractPageText(bytes);
-    expect(text).toContain("404");
   });
 
   it("falls back gracefully when fetch itself throws (e.g. offline)", async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error("network down"));
+    mockImageFetch(async () => {
+      throw new Error("network down");
+    });
 
     await expect(exportWorkbookPdf(imageConfig, {})).resolves.toBeInstanceOf(Uint8Array);
   });
 
-  it("names a cross-origin block specifically, since that's the actual common cause (a message-less TypeError)", async () => {
-    global.fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+  // These check the actual failure reason at the source (embedImageFields'
+  // own `errors` map) rather than round-tripping through rendered PDF
+  // text — the placeholder uses a custom subset font with 2-byte CID glyph
+  // codes, which a simple hex/Latin-1 test decoder can't read back.
+  it("records the real reason a non-2xx response failed, not a mute placeholder", async () => {
+    global.fetch = vi.fn(async (url) => {
+      if (url === "https://example.com/pic.png") return { ok: false, status: 404, statusText: "Not Found" };
+      return originalFetch(url);
+    });
+    const pdfDoc = await PDFDocument.create();
+    const { embedded, errors } = await embedImageFields(pdfDoc, imageConfig);
+    expect(embedded.get("pic")).toBeNull();
+    expect(errors.get("pic")).toContain("404");
+  });
 
-    const bytes = await exportWorkbookPdf(imageConfig, {});
-    const text = await extractPageText(bytes);
-    expect(text).toContain("cross-origin");
+  it("names a cross-origin block specifically, since that's the actual common cause (a message-less TypeError)", async () => {
+    global.fetch = vi.fn(async (url) => {
+      if (url === "https://example.com/pic.png") throw new TypeError("Failed to fetch");
+      return originalFetch(url);
+    });
+    const pdfDoc = await PDFDocument.create();
+    const { errors } = await embedImageFields(pdfDoc, imageConfig);
+    expect(errors.get("pic")).toContain("cross-origin");
   });
 });

@@ -1,4 +1,5 @@
-import { PDFDocument, StandardFonts, rgb } from "../vendor/pdf-lib.esm.js";
+import { PDFDocument, rgb } from "../vendor/pdf-lib.esm.js";
+import fontkit from "../vendor/fontkit.esm.js";
 import { DISPLAY_ONLY_FIELD_TYPES } from "../fields/index.js";
 import { groupByColumn } from "../core/column-layout.js";
 
@@ -9,6 +10,27 @@ const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 const GAP = 10;
 const MAX_IMAGE_HEIGHT = 160;
 
+// Google's own font CDN — permanent, CORS-enabled (confirmed:
+// access-control-allow-origin: *), so these fetch identically whether this
+// code runs locally in the Builder or from the bundled CDN runtime. Pinned
+// to specific file URLs (not the @font-face CSS endpoint) so this doesn't
+// depend on parsing CSS to find them.
+const POPPINS_REGULAR_URL = "https://fonts.gstatic.com/s/poppins/v24/pxiEyp8kv8JHgFVrFJA.ttf";
+const POPPINS_BOLD_URL = "https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLCz7V1s.ttf";
+
+async function embedPoppins(pdfDoc) {
+  pdfDoc.registerFontkit(fontkit);
+  const [regularBytes, boldBytes] = await Promise.all([
+    fetch(POPPINS_REGULAR_URL).then((res) => res.arrayBuffer()),
+    fetch(POPPINS_BOLD_URL).then((res) => res.arrayBuffer()),
+  ]);
+  const [font, boldFont] = await Promise.all([
+    pdfDoc.embedFont(regularBytes, { subset: true }),
+    pdfDoc.embedFont(boldBytes, { subset: true }),
+  ]);
+  return { font, boldFont };
+}
+
 /**
  * Fetches and embeds every image field's picture into the PDF document up
  * front (embedding is async; the layout pass below is not), so drawing can
@@ -18,7 +40,7 @@ const MAX_IMAGE_HEIGHT = 160;
  * the fallback placeholder can show *why* it failed (network error, a
  * non-2xx status, wrong content type) instead of a mute "[image]".
  */
-async function embedImageFields(pdfDoc, config) {
+export async function embedImageFields(pdfDoc, config) {
   const embedded = new Map();
   const errors = new Map();
   const jobs = [];
@@ -254,8 +276,7 @@ export async function exportWorkbookPdf(config, data) {
   const worksheetsData = (data && data.worksheets) || {};
 
   const pdfDoc = await PDFDocument.create();
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const { font, boldFont } = await embedPoppins(pdfDoc);
   const form = pdfDoc.getForm();
   const { embedded: embeddedImages, errors: imageErrors } = await embedImageFields(pdfDoc, config);
 
