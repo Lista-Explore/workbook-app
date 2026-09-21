@@ -150,7 +150,7 @@ details.wb-section:not([open]) > summary.wb-section-title::before {
    (and the outer grid border above) — only the left edge is needed, since
    every column but the first sits directly against another cell there. */
 .wb-column + .wb-column {
-  border-left: 1px solid var(--wb-border-strong);
+  border-left: 1px dotted var(--wb-border-strong);
 }
 
 .wb-field-image img {

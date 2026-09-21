@@ -399,7 +399,7 @@ input.builder-section-title-input:focus {
 /* Only the left edge — a border on every side would double up with the
    outer grid border above and each neighboring column's own edge. */
 .builder-field-column + .builder-field-column {
-  border-left: 1px solid var(--bd-border-strong);
+  border-left: 1px dotted var(--bd-border-strong);
 }
 
 /* Same narrow-screen collapse as the Runtime — a thin grid column here

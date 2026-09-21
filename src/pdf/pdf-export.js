@@ -392,6 +392,7 @@ export async function exportWorkbookPdf(config, data) {
             end: { x: dividerX, y: lowestY },
             color: gridColor,
             thickness: 1,
+            dashArray: [1, 2],
           });
         }
       }
