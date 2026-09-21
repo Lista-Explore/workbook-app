@@ -353,15 +353,6 @@ input.builder-section-title-input:focus {
   background: var(--bd-surface);
 }
 
-.builder-image-upload-label {
-  display: flex;
-  align-items: center;
-  gap: 0.4em;
-  font-size: 0.85em;
-  color: var(--bd-muted);
-  flex: 1;
-  min-width: 160px;
-}
 
 .builder-fields-container {
   display: flex;

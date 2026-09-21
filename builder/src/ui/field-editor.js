@@ -68,36 +68,11 @@ function renderImageFieldControls(field, onLightChange) {
   const srcInput = document.createElement("input");
   srcInput.type = "text";
   srcInput.placeholder = "Image URL";
-  srcInput.value = (field.src || "").startsWith("data:") ? "" : field.src || "";
+  srcInput.value = field.src || "";
   srcInput.addEventListener("input", () => {
     field.src = srcInput.value;
     onLightChange();
   });
-
-  // Uploading embeds the image's actual bytes as a data URI directly in
-  // field.src, instead of a remote URL — the PDF export never has to fetch
-  // it cross-origin, so it works even for image hosts (like stock-photo
-  // CDNs) that block that kind of request outright.
-  const uploadLabel = document.createElement("label");
-  uploadLabel.className = "builder-image-upload-label";
-  uploadLabel.textContent = field.src?.startsWith("data:") ? "Uploaded image ✓ — replace: " : "Or upload an image: ";
-  const uploadInput = document.createElement("input");
-  uploadInput.type = "file";
-  uploadInput.accept = "image/png, image/jpeg";
-  uploadInput.addEventListener("change", async () => {
-    const file = uploadInput.files[0];
-    uploadInput.value = "";
-    if (!file) return;
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    });
-    field.src = dataUrl;
-    onLightChange();
-  });
-  uploadLabel.appendChild(uploadInput);
 
   const altInput = document.createElement("input");
   altInput.type = "text";
@@ -118,7 +93,6 @@ function renderImageFieldControls(field, onLightChange) {
   });
 
   wrap.appendChild(srcInput);
-  wrap.appendChild(uploadLabel);
   wrap.appendChild(altInput);
   wrap.appendChild(captionInput);
   return wrap;
