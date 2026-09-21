@@ -113,6 +113,30 @@ describe("hydrateWorkbook", () => {
     expect(field.getText()).toBe("Ada Lovelace");
   });
 
+  it("migrates a value saved under a stale worksheet key into the correct one, so it isn't silently dropped from PDF export (regression: value visible in the form but absent from the download)", async () => {
+    const id = "hydrate-legacy-key";
+    // Simulate data saved by an older version of this file, before
+    // worksheet ids were tracked correctly — stored flat under "default".
+    await createWorkbookStorage(id).set("state", { worksheets: { default: { name: "Old Value" } } });
+
+    const mount = mountStatic(id);
+    const adapter = await hydrateWorkbook(mount);
+
+    // It shows up in the form (valueFor() already scanned every key)...
+    expect(mount.querySelector("#name").value).toBe("Old Value");
+
+    // ...and, after migration, it's also findable under the real worksheet
+    // id, so exportWorkbookPdf() (which only looks there) doesn't miss it.
+    const bytes = await adapter.exportPDF();
+    const pdfDoc = await PDFDocument.load(bytes);
+    expect(pdfDoc.getForm().getTextField("name").getText()).toBe("Old Value");
+
+    await vi.waitFor(async () => {
+      const saved = await createWorkbookStorage(id).get("state");
+      expect(saved.worksheets["worksheet-0"].name).toBe("Old Value");
+    });
+  });
+
   it("hydrateAllWorkbooks doesn't let a malformed workbook block the others on the page", async () => {
     const broken = document.createElement("div");
     broken.className = "lms-workbook";

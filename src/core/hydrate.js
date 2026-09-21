@@ -62,16 +62,31 @@ export async function hydrateWorkbook(rootEl) {
     data.worksheets[worksheetId][fieldId] = value;
   }
 
+  // Migrate any value found under the wrong worksheet key (e.g. saved by
+  // an older version of this file, before worksheet ids were tracked
+  // correctly) into the right key — otherwise it displays fine here (this
+  // scan checks every key) but silently vanishes from exportWorkbookPdf(),
+  // which only looks under the field's actual worksheet id.
+  let migrated = false;
   const wrappers = fieldWrappers(rootEl);
   for (const wrapper of wrappers) {
     const type = wrapper.dataset.fieldType;
     if (!FieldRegistry.has(type)) continue;
     const field = FieldRegistry.get(type);
-    const existing = valueFor(wrapper.dataset.fieldId);
-    if (existing !== undefined) field.setValue(wrapper, existing);
+    const fieldId = wrapper.dataset.fieldId;
+    const existing = valueFor(fieldId);
+    if (existing !== undefined) {
+      field.setValue(wrapper, existing);
+      const correctWorksheetId = worksheetIdFor(rootEl, wrapper);
+      if (!data.worksheets[correctWorksheetId]?.[fieldId]) {
+        setFieldValue(correctWorksheetId, fieldId, existing);
+        migrated = true;
+      }
+    }
   }
 
   const persist = debounce(() => storage.set("state", data), AUTOSAVE_DELAY_MS);
+  if (migrated) persist();
 
   rootEl.addEventListener("input", (event) => {
     const wrapper = event.target.closest(".wb-field[data-field-id][data-field-type]");
