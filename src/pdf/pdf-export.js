@@ -15,6 +15,10 @@ const MAX_IMAGE_HEIGHT = 160;
 // the divider lines with no breathing room.
 const COLUMN_PADDING = 14;
 const REQUIRED_COLOR = rgb(0.706, 0.137, 0.094);
+// Vertical breathing room after a section's content, before the next
+// section's banner starts — without this, one section's fields sit flush
+// against the next section's title with no separation at all.
+const SECTION_GAP = 20;
 
 // A collapsible section's title is a colored banner on screen (the host
 // LMS's own ".content-summary" class), not plain text — matching that in
@@ -462,7 +466,7 @@ export async function exportWorkbookPdf(config, data) {
         }
       }
 
-      y = lowestY;
+      y = lowestY - SECTION_GAP;
     }
   });
 
