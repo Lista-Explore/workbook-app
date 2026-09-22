@@ -15,6 +15,11 @@ const MAX_IMAGE_HEIGHT = 160;
 // the divider lines with no breathing room.
 const COLUMN_PADDING = 14;
 const REQUIRED_COLOR = rgb(0.706, 0.137, 0.094);
+// Bug fix, not a design choice: without this, the next section's title is
+// drawn at the exact y the previous section ended on — flush against its
+// bottom border/last field, with zero gap. Matches the Runtime's own
+// .wb-section { margin-bottom: 1.25em } spacing between section boxes.
+const SECTION_GAP = 16;
 
 // Google's own font CDN — permanent, CORS-enabled (confirmed:
 // access-control-allow-origin: *), so these fetch identically whether this
@@ -431,7 +436,7 @@ export async function exportWorkbookPdf(config, data) {
         }
       }
 
-      y = lowestY;
+      y = lowestY - SECTION_GAP;
     }
   });
 
