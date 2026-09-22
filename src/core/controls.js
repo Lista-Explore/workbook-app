@@ -11,6 +11,7 @@ export function renderWorkbookControls(workbook) {
 
   const downloadBtn = document.createElement("button");
   downloadBtn.type = "button";
+  downloadBtn.className = "btn-primary";
   downloadBtn.id = "wb-download-pdf-btn";
   downloadBtn.textContent = "Download PDF";
   downloadBtn.addEventListener("click", async () => {
@@ -40,10 +41,12 @@ export function renderWorkbookControls(workbook) {
     const bytes = new Uint8Array(await file.arrayBuffer());
     await workbook.importPDF(bytes);
   });
+
   uploadLabel.appendChild(uploadInput);
 
   const resetBtn = document.createElement("button");
   resetBtn.type = "button";
+  resetBtn.className = "btn-secondary";
   resetBtn.id = "wb-reset-btn";
   resetBtn.textContent = "Reset";
   resetBtn.addEventListener("click", () => workbook.clear());

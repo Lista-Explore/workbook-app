@@ -371,32 +371,6 @@
   border-top: 1px solid #e2e5ea;
 }
 
-#wb-controls button {
-  font: inherit;
-  font-weight: 500;
-  padding: 0.55em 1.1em;
-  border: 1px solid #1f2328;
-  border-radius: 7px;
-  background: #1f2328;
-  color: #fff;
-  cursor: pointer;
-}
-
-#wb-controls button:hover {
-  background: #3a3f47;
-  border-color: #3a3f47;
-}
-
-#wb-controls #wb-reset-btn {
-  background: #fff;
-  color: #1f2328;
-  border-color: #d0d5dd;
-}
-
-#wb-controls #wb-reset-btn:hover {
-  background: #f6f8fa;
-}
-
 #wb-controls label {
   font-size: 0.9em;
   color: #6b7280;

@@ -122,14 +122,25 @@ export class BuilderState {
   }
 
   /**
-   * Adds a field to a section. By default it's appended to the end; pass
+   * Adds a field to a section, or directly to the worksheet when sectionId
+   * is null. By default it's appended to the end; pass
    * `insertIndex` to insert it at a specific position instead (e.g. right
    * after the question the designer was looking at), so inserting into the
    * middle of a long list never requires re-adding and re-ordering
    * everything after it.
    */
   addField(worksheetId, sectionId, fieldConfig, insertIndex) {
-    const section = this._findSection(worksheetId, sectionId);
+    // Standalone questions retain the existing field pipeline in an untitled,
+    // non-disclosing group, created only when the first question is added.
+    let section;
+    if (sectionId == null) {
+      const worksheet = this._findWorksheet(worksheetId);
+      const id = generateId("questions", worksheet.sections.length, this._usedSectionIds);
+      section = { id, title: "", columns: 1, unsectioned: true, fields: [] };
+      worksheet.sections.push(section);
+    } else {
+      section = this._findSection(worksheetId, sectionId);
+    }
     const id = generateId(fieldConfig.label, section.fields.length, this._usedFieldIds);
     const field = { id, required: false, ...fieldConfig };
     if (insertIndex == null || insertIndex >= section.fields.length) {
@@ -143,6 +154,9 @@ export class BuilderState {
   removeField(worksheetId, sectionId, fieldId) {
     const section = this._findSection(worksheetId, sectionId);
     section.fields = section.fields.filter((f) => f.id !== fieldId);
+    if (section.unsectioned && section.fields.length === 0) {
+      this.removeSection(worksheetId, sectionId);
+    }
   }
 
   updateField(worksheetId, sectionId, fieldId, patch) {

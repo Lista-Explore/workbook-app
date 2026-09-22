@@ -94,7 +94,7 @@ function sectionConfigFromEl(sectionEl) {
     });
   });
 
-  return { id, title, columns, collapsible: sectionEl.tagName === "DETAILS", fields };
+  return { id, title, columns, collapsible: sectionEl.tagName === "DETAILS", ...(sectionEl.dataset.unsectioned === "true" ? { unsectioned: true } : {}), fields };
 }
 
 /** Reconstructs a full workbook config from a mounted `.lms-workbook` element. */

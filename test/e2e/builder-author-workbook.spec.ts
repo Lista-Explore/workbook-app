@@ -105,27 +105,3 @@ test("each worksheet has its own independent sections", async ({ page }) => {
   await page.locator(".builder-worksheet-tab button").first().click();
   await expect(page.locator(".builder-section-card")).toHaveCount(1);
 });
-
-test("a question can be added straight to a worksheet with no section — one gets created silently, still fully editable afterward", async ({ page }) => {
-  await page.goto("/builder/index.html");
-  await page.fill("#builder-workbook-title", "E2E No Section First");
-
-  await page.click("#builder-add-worksheet-btn");
-  await expect(page.locator(".builder-section-card")).toHaveCount(0);
-
-  // "+ Add question" needs no section to already exist.
-  await page.click(".builder-add-question-btn");
-  await expect(page.locator(".builder-section-card")).toHaveCount(1);
-  await expect(page.locator(".builder-field-row")).toHaveCount(1);
-
-  // The section it silently created is real and fully editable, same as one
-  // added deliberately via "+ Add section".
-  const sectionCard = page.locator(".builder-section-card").first();
-  await sectionCard.locator(".builder-section-title-input").fill("Now named");
-  await expect(sectionCard.locator(".builder-section-title-input")).toHaveValue("Now named");
-
-  // A second click adds into that same section rather than creating another.
-  await page.click(".builder-add-question-btn");
-  await expect(page.locator(".builder-section-card")).toHaveCount(1);
-  await expect(page.locator(".builder-field-row")).toHaveCount(2);
-});

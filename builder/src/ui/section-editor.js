@@ -13,6 +13,13 @@ export function renderSectionEditor(container, state, worksheetId, onChange, onL
   if (!worksheet) return;
 
   worksheet.sections.forEach((section) => {
+    if (section.unsectioned) {
+      const fields = document.createElement("div");
+      fields.className = "builder-fields-container";
+      renderFieldEditor(fields, state, worksheetId, section.id, section, onChange, onLightChange);
+      container.appendChild(fields);
+      return;
+    }
     const card = document.createElement("div");
     card.className = "builder-section-card";
     card.dataset.sectionId = section.id;
@@ -76,22 +83,13 @@ export function renderSectionEditor(container, state, worksheetId, onChange, onL
     container.appendChild(card);
   });
 
-  // Adding a question has never required a section to already exist — this
-  // drops it into the worksheet's last section, silently creating one
-  // first (still a real, fully-editable section afterward) only if there
-  // isn't one yet. Sections themselves are untouched and still fully
-  // available via "+ Add section" below for anyone who wants to manage
-  // them directly (columns, title, starts collapsed).
-  const addQuestionBtn = document.createElement("button");
-  addQuestionBtn.type = "button";
-  addQuestionBtn.className = "builder-add-question-btn";
-  addQuestionBtn.textContent = "+ Add question";
-  addQuestionBtn.addEventListener("click", () => {
-    const targetSection = worksheet.sections[worksheet.sections.length - 1] || state.addSection(worksheetId, { title: "New section" });
-    state.addField(worksheetId, targetSection.id, { type: "short-text", label: "New question", column: 0 });
-    onChange();
-  });
-  container.appendChild(addQuestionBtn);
+  // A trailing standalone group already provides an add-question control.
+  if (!worksheet.sections.at(-1)?.unsectioned) {
+    const fields = document.createElement("div");
+    fields.className = "builder-fields-container";
+    renderFieldEditor(fields, state, worksheetId, null, { fields: [] }, onChange, onLightChange);
+    container.appendChild(fields);
+  }
 
   const addSectionBtn = document.createElement("button");
   addSectionBtn.type = "button";
