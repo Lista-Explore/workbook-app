@@ -68,27 +68,19 @@ describe("BuilderState — workbook id derivation", () => {
 });
 
 describe("BuilderState — sections", () => {
-  it("a new worksheet already has one section — no need to add one before adding questions", () => {
-    const ws = state.addWorksheet("WS1");
-    expect(ws.sections).toHaveLength(1);
-    expect(ws.sections[0].collapsible).toBe(true);
-  });
-
   it("adds a section to a worksheet with the given columns, always collapsible", () => {
     const ws = state.addWorksheet("WS1");
     const section = state.addSection(ws.id, { title: "Basic Info", columns: 2 });
     expect(section.columns).toBe(2);
     expect(section.collapsible).toBe(true);
-    // the worksheet's own starter section, plus this one
-    expect(ws.sections).toHaveLength(2);
+    expect(ws.sections).toHaveLength(1);
   });
 
   it("removes a section", () => {
     const ws = state.addWorksheet("WS1");
     const section = state.addSection(ws.id);
     state.removeSection(ws.id, section.id);
-    // back down to just the worksheet's own starter section
-    expect(ws.sections).toHaveLength(1);
+    expect(ws.sections).toHaveLength(0);
   });
 
   it("updates a section's settings", () => {
@@ -101,7 +93,6 @@ describe("BuilderState — sections", () => {
 
   it("reorders sections within a worksheet", () => {
     const ws = state.addWorksheet("WS1");
-    state.removeSection(ws.id, ws.sections[0].id); // drop the auto-added starter section
     const a = state.addSection(ws.id, { title: "A" });
     state.addSection(ws.id, { title: "B" });
     state.reorderSection(ws.id, a.id, 1);
@@ -211,10 +202,8 @@ describe("BuilderState.reset", () => {
 
 describe("BuilderState.toConfig", () => {
   it("produces a plain, deep-cloned workbook definition", () => {
-    // addWorksheet already starts with one section — use it directly
-    // instead of adding a second, to match how the Builder actually works.
     const ws = state.addWorksheet("WS1");
-    const section = ws.sections[0];
+    const section = state.addSection(ws.id);
     state.addField(ws.id, section.id, { type: "short-text", label: "Name" });
     const config = state.toConfig();
     expect(config.worksheets[0].sections[0].fields[0].label).toBe("Name");

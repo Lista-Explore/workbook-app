@@ -93,18 +93,39 @@ test("each worksheet has its own independent sections", async ({ page }) => {
   await page.goto("/builder/index.html");
   await page.fill("#builder-workbook-title", "E2E Workbook 2");
 
-  // A new worksheet already has one section — no "+ Add section" click needed.
   await page.click("#builder-add-worksheet-btn");
-  await expect(page.locator(".builder-section-card")).toHaveCount(1);
   await page.click(".builder-add-section-btn");
-  await expect(page.locator(".builder-section-card")).toHaveCount(2);
-
-  await page.click("#builder-add-worksheet-btn");
-  // The freshly added second worksheet has its own single starter section —
-  // not the first worksheet's two.
   await expect(page.locator(".builder-section-card")).toHaveCount(1);
 
-  // Switching back to the first worksheet still shows its own two sections.
+  await page.click("#builder-add-worksheet-btn");
+  // Switching to the freshly added (empty) second worksheet shows no sections.
+  await expect(page.locator(".builder-section-card")).toHaveCount(0);
+
+  // Switching back to the first worksheet still shows its section.
   await page.locator(".builder-worksheet-tab button").first().click();
-  await expect(page.locator(".builder-section-card")).toHaveCount(2);
+  await expect(page.locator(".builder-section-card")).toHaveCount(1);
+});
+
+test("a question can be added straight to a worksheet with no section — one gets created silently, still fully editable afterward", async ({ page }) => {
+  await page.goto("/builder/index.html");
+  await page.fill("#builder-workbook-title", "E2E No Section First");
+
+  await page.click("#builder-add-worksheet-btn");
+  await expect(page.locator(".builder-section-card")).toHaveCount(0);
+
+  // "+ Add question" needs no section to already exist.
+  await page.click(".builder-add-question-btn");
+  await expect(page.locator(".builder-section-card")).toHaveCount(1);
+  await expect(page.locator(".builder-field-row")).toHaveCount(1);
+
+  // The section it silently created is real and fully editable, same as one
+  // added deliberately via "+ Add section".
+  const sectionCard = page.locator(".builder-section-card").first();
+  await sectionCard.locator(".builder-section-title-input").fill("Now named");
+  await expect(sectionCard.locator(".builder-section-title-input")).toHaveValue("Now named");
+
+  // A second click adds into that same section rather than creating another.
+  await page.click(".builder-add-question-btn");
+  await expect(page.locator(".builder-section-card")).toHaveCount(1);
+  await expect(page.locator(".builder-field-row")).toHaveCount(2);
 });

@@ -185,6 +185,7 @@ button:hover {
 
 /* Primary actions */
 
+.builder-add-question-btn,
 .builder-add-section-btn,
 .builder-add-field-btn,
 #builder-download-pdf-btn {
@@ -193,6 +194,7 @@ button:hover {
   color: #fff;
 }
 
+.builder-add-question-btn:hover,
 .builder-add-section-btn:hover,
 .builder-add-field-btn:hover,
 #builder-download-pdf-btn:hover {

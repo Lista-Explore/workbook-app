@@ -4,8 +4,8 @@ test("Clear all requires a second click to confirm (click-to-arm, not a native d
   await page.goto("/builder/index.html");
 
   await page.fill("#builder-workbook-title", "About To Be Cleared");
-  // A new worksheet already has one section — no "+ Add section" click needed.
   await page.click("#builder-add-worksheet-btn");
+  await page.click(".builder-add-section-btn");
   await expect(page.locator(".builder-worksheet-tab")).toHaveCount(1);
   await expect(page.locator(".builder-section-card")).toHaveCount(1);
 

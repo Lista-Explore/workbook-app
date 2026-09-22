@@ -76,6 +76,23 @@ export function renderSectionEditor(container, state, worksheetId, onChange, onL
     container.appendChild(card);
   });
 
+  // Adding a question has never required a section to already exist — this
+  // drops it into the worksheet's last section, silently creating one
+  // first (still a real, fully-editable section afterward) only if there
+  // isn't one yet. Sections themselves are untouched and still fully
+  // available via "+ Add section" below for anyone who wants to manage
+  // them directly (columns, title, starts collapsed).
+  const addQuestionBtn = document.createElement("button");
+  addQuestionBtn.type = "button";
+  addQuestionBtn.className = "builder-add-question-btn";
+  addQuestionBtn.textContent = "+ Add question";
+  addQuestionBtn.addEventListener("click", () => {
+    const targetSection = worksheet.sections[worksheet.sections.length - 1] || state.addSection(worksheetId, { title: "New section" });
+    state.addField(worksheetId, targetSection.id, { type: "short-text", label: "New question", column: 0 });
+    onChange();
+  });
+  container.appendChild(addQuestionBtn);
+
   const addSectionBtn = document.createElement("button");
   addSectionBtn.type = "button";
   addSectionBtn.className = "builder-add-section-btn";

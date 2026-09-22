@@ -66,11 +66,6 @@ export class BuilderState {
     const id = generateId(title, this.workbook.worksheets.length, this._usedWorksheetIds);
     const worksheet = { id, title, sections: [] };
     this.workbook.worksheets.push(worksheet);
-    // A brand-new worksheet starts with one section already in it — not
-    // empty — so a designer can go straight to "+ Add question" instead of
-    // first having to click "+ Add section" for a worksheet that obviously
-    // needs at least one anyway.
-    this.addSection(id);
     return worksheet;
   }
 
