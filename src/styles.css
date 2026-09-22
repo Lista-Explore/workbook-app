@@ -98,7 +98,6 @@ details.wb-section:not([open]) > summary.wb-section-title:not(.content-summary):
 /* Sections & layout */
 
 .wb-section {
-  border: 1px solid var(--wb-border);
   border-radius: 12px;
   padding: 1.25em 1.4em;
   margin-bottom: 1.25em;
