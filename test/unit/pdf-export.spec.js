@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { PDFDocument, StandardFonts } from "../../src/vendor/pdf-lib.esm.js";
-import { exportWorkbookPdf, wrapText, embedImageFields } from "../../src/pdf/pdf-export.js";
+import { exportWorkbookPdf, wrapText, embedImageFields, contentEntries } from "../../src/pdf/pdf-export.js";
 
 function widgetRect(form, fieldName) {
   const field = form.getField(fieldName);
@@ -352,5 +352,22 @@ describe("exportWorkbookPdf — image embedding", () => {
     const xObjects = page.node.Resources().lookup(pdfDoc.context.obj("XObject"));
     expect(xObjects).toBeDefined();
     expect(pdfDoc.getForm().getFields().map((field) => field.getName())).toContain("answer");
+  });
+
+  it("reads SunEditor image alignment and width for Content PDF layout", () => {
+    const entries = contentEntries({
+      id: "content",
+      type: "content",
+      html: '<div class="se-component se-image-container __se__float-center" style="min-width: 100%; width: 50%"><figure style="width: 50%;"><img src="https://example.com/content.png" alt="Diagram" data-align="center" data-percentage="50," data-size="50%," style="width: 100%;"></figure></div>',
+    });
+
+    expect(entries).toMatchObject([
+      {
+        type: "image",
+        src: "https://example.com/content.png",
+        align: "center",
+        widthRatio: 0.5,
+      },
+    ]);
   });
 });

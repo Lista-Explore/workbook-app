@@ -168,6 +168,19 @@ function scaledImageSize(image, maxWidth) {
   return { width: image.width * ratio, height: image.height * ratio };
 }
 
+function scaledContentImageSize(image, maxWidth, widthRatio = 1) {
+  const constrainedRatio = Math.min(Math.max(Number(widthRatio) || 1, 0.05), 1);
+  const targetWidth = maxWidth * constrainedRatio;
+  const ratio = Math.min(targetWidth / image.width, MAX_IMAGE_HEIGHT / image.height, 1);
+  return { width: image.width * ratio, height: image.height * ratio };
+}
+
+function alignedContentX(x, availableWidth, renderedWidth, align) {
+  if (align === "right") return x + availableWidth - renderedWidth;
+  if (align === "center") return x + (availableWidth - renderedWidth) / 2;
+  return x;
+}
+
 /**
  * Breaks `text` into lines that each fit within `maxWidth` at the given
  * font/size — without this, a label or instructions text longer than its
@@ -288,7 +301,41 @@ function textStyleForNode(node) {
   return { bold: strong, size: sizeByTag[tag] || 10 };
 }
 
-function contentEntries(field) {
+function parsePercent(value) {
+  const match = String(value || "").match(/(\d+(?:\.\d+)?)\s*%/);
+  if (!match) return null;
+  const ratio = Number(match[1]) / 100;
+  return Number.isFinite(ratio) && ratio > 0 ? Math.min(ratio, 1) : null;
+}
+
+function inlineStyleValue(node, property) {
+  const style = node?.getAttribute?.("style") || "";
+  const rule = style.split(";").find((part) => part.trim().toLowerCase().startsWith(`${property.toLowerCase()}:`));
+  return rule ? rule.split(":").slice(1).join(":").trim() : "";
+}
+
+function imageLayoutForNode(img) {
+  const figure = img.closest?.("figure");
+  const component = img.closest?.(".se-component");
+  const align =
+    img.getAttribute("data-align") ||
+    (component?.classList.contains("__se__float-center") ? "center" : "") ||
+    (component?.classList.contains("__se__float-right") ? "right" : "") ||
+    (component?.classList.contains("__se__float-left") ? "left" : "") ||
+    inlineStyleValue(component, "text-align") ||
+    inlineStyleValue(figure, "text-align") ||
+    "left";
+  const widthRatio =
+    parsePercent(img.getAttribute("data-percentage")) ||
+    parsePercent(img.getAttribute("data-size")) ||
+    parsePercent(inlineStyleValue(figure, "width")) ||
+    parsePercent(inlineStyleValue(component, "width")) ||
+    parsePercent(inlineStyleValue(img, "width")) ||
+    1;
+  return { align: ["center", "right", "left"].includes(align) ? align : "left", widthRatio };
+}
+
+export function contentEntries(field) {
   const host = document.createElement("div");
   host.innerHTML = sanitizeContent(field.html);
   const entries = [];
@@ -305,14 +352,14 @@ function contentEntries(field) {
     const tag = node.tagName.toLowerCase();
     if (tag === "img") {
       const src = node.getAttribute("src") || "";
-      entries.push({ type: "image", src, alt: node.getAttribute("alt") || "", key: contentImageKey(field.id, imageIndex++) });
+      entries.push({ type: "image", src, alt: node.getAttribute("alt") || "", key: contentImageKey(field.id, imageIndex++), ...imageLayoutForNode(node) });
       return;
     }
     if (tag === "figure") {
       const img = node.querySelector("img");
       if (img) {
         const src = img.getAttribute("src") || "";
-        entries.push({ type: "image", src, alt: img.getAttribute("alt") || "", key: contentImageKey(field.id, imageIndex++) });
+        entries.push({ type: "image", src, alt: img.getAttribute("alt") || "", key: contentImageKey(field.id, imageIndex++), ...imageLayoutForNode(img) });
       }
       const caption = node.querySelector("figcaption");
       if (caption?.textContent.trim()) entries.push({ type: "text", text: caption.textContent.trim(), bold: false, size: 8, muted: true });
@@ -340,7 +387,7 @@ function contentHeight(field, embeddedImages, font, boldFont, width, imageErrors
   return entries.reduce((total, entry) => {
     if (entry.type === "image") {
       const image = embeddedImages?.get(entry.key);
-      if (image) return total + scaledImageSize(image, width).height + GAP;
+      if (image) return total + scaledContentImageSize(image, width, entry.widthRatio).height + GAP;
       const reason = imageErrors?.get(entry.key);
       const text = `[image not embedded${reason ? `: ${reason}` : entry.alt ? `: ${entry.alt}` : ""}]`;
       return total + wrapText(text, font, 8, width).length * LINE_HEIGHT + GAP;
@@ -356,8 +403,8 @@ function drawContent({ page, field, embeddedImages, imageErrors, font, boldFont,
     if (entry.type === "image") {
       const image = embeddedImages?.get(entry.key);
       if (image) {
-        const { width: w, height: h } = scaledImageSize(image, width);
-        page.drawImage(image, { x, y: cursorY - h, width: w, height: h });
+        const { width: w, height: h } = scaledContentImageSize(image, width, entry.widthRatio);
+        page.drawImage(image, { x: alignedContentX(x, width, w, entry.align), y: cursorY - h, width: w, height: h });
         cursorY -= h + GAP;
       } else {
         const reason = imageErrors?.get(entry.key);

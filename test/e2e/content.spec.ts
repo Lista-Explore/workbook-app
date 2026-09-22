@@ -37,3 +37,26 @@ test('Content formatting survives preview, structural edits, and draft reload', 
   await expect(body.locator('strong,b')).toHaveText('Formatted content');
   expect(errors).toEqual([]);
 });
+
+test('published Content image alignment and sizing render in workbook HTML', async ({ page }) => {
+  await page.goto('/builder/index.html');
+  await page.setContent(`
+    <link rel="stylesheet" href="/src/styles.css">
+    <div class="wb-content" style="width: 600px; border: 0;">
+      <div class="se-component se-image-container __se__float-center" style="min-width: 100%; width: 50%;">
+        <figure style="width: 50%;">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='100'%3E%3Crect width='200' height='100' fill='black'/%3E%3C/svg%3E" alt="Centered" style="width: 100%;" data-align="center" data-percentage="50," data-size="50%,">
+        </figure>
+      </div>
+    </div>
+  `);
+
+  const contentBox = await page.locator('.wb-content').boundingBox();
+  const imageBox = await page.locator('.wb-content img').boundingBox();
+  expect(contentBox).not.toBeNull();
+  expect(imageBox).not.toBeNull();
+  const contentCenter = contentBox!.x + contentBox!.width / 2;
+  const imageCenter = imageBox!.x + imageBox!.width / 2;
+  expect(Math.abs(imageCenter - contentCenter)).toBeLessThan(2);
+  expect(imageBox!.width).toBeCloseTo(300, 1);
+});
