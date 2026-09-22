@@ -180,7 +180,7 @@ function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFon
   const labelHeight = (labelLines - 1) * LINE_HEIGHT;
 
   if (field.type === "long-text") return 90 + labelHeight;
-  if (field.type === "radio" || field.type === "checkbox-group") {
+  if (field.type === "radio" || field.type === "checkbox-group" || field.type === "checklist") {
     const count = (field.options || []).length || 1;
     return 20 + count * 16 + labelHeight;
   }
@@ -277,7 +277,8 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
       return;
     }
 
-    case "checkbox-group": {
+    case "checkbox-group":
+    case "checklist": {
       const selected = new Set(Array.isArray(value) ? value : []);
       let optionY = widgetY;
       (field.options || []).forEach((option, index) => {

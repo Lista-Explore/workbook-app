@@ -194,6 +194,20 @@ function renderFieldRow({ field, index, fieldCount, state, worksheetId, sectionI
     );
   }
 
+  if (field.type === "checklist") {
+    const lockLabel = document.createElement("label");
+    const lockCheckbox = document.createElement("input");
+    lockCheckbox.type = "checkbox";
+    lockCheckbox.checked = Boolean(field.sequentialLock);
+    lockCheckbox.addEventListener("change", () => {
+      state.updateField(worksheetId, sectionId, field.id, { sequentialLock: lockCheckbox.checked });
+      onChange();
+    });
+    lockLabel.appendChild(lockCheckbox);
+    lockLabel.appendChild(document.createTextNode(" Each item unlocks only after the one before it is checked"));
+    row.appendChild(lockLabel);
+  }
+
   const removeBtn = document.createElement("button");
   removeBtn.type = "button";
   removeBtn.className = "builder-remove-btn";

@@ -45,6 +45,13 @@ function fieldConfigFromWrapper(wrapper, column) {
     });
     return { ...base, options };
   }
+  if (type === "checklist") {
+    const options = Array.from(wrapper.querySelectorAll(".wb-checklist-item input")).map((input) => {
+      const optLabel = wrapper.querySelector(`label[for="${input.id}"]`);
+      return optLabel ? optLabel.textContent.trim() : input.value;
+    });
+    return { ...base, options, sequentialLock: wrapper.dataset.sequentialLock === "true" };
+  }
   if (type === "dropdown") {
     const options = Array.from(wrapper.querySelectorAll("select option"))
       .map((opt) => opt.value)

@@ -10,6 +10,7 @@ import { dropdown } from "./dropdown.js";
 import { radio } from "./radio.js";
 import { checkbox } from "./checkbox.js";
 import { checkboxGroup } from "./checkbox-group.js";
+import { checklist } from "./checklist.js";
 import { date } from "./date.js";
 import { time } from "./time.js";
 import { datetime } from "./datetime.js";
@@ -36,6 +37,7 @@ export function registerAllFields() {
   FieldRegistry.register("radio", radio);
   FieldRegistry.register("checkbox", checkbox);
   FieldRegistry.register("checkbox-group", checkboxGroup);
+  FieldRegistry.register("checklist", checklist);
   FieldRegistry.register("date", date);
   FieldRegistry.register("time", time);
   FieldRegistry.register("datetime", datetime);
@@ -63,6 +65,7 @@ export const DESIGNER_FIELD_TYPES = [
   { type: "radio", name: "Radio (select one)" },
   { type: "checkbox", name: "Checkbox (yes/no)" },
   { type: "checkbox-group", name: "Checklist (select multiple)" },
+  { type: "checklist", name: "Progress checklist (tick off items)" },
   { type: "date", name: "Date" },
   { type: "time", name: "Time" },
   { type: "datetime", name: "Date + time" },
@@ -78,6 +81,6 @@ export const DESIGNER_FIELD_TYPES = [
   { type: "image", name: "Image (display only)" },
 ];
 
-export const OPTIONS_FIELD_TYPES = new Set(["dropdown", "radio", "checkbox-group", "datalist"]);
+export const OPTIONS_FIELD_TYPES = new Set(["dropdown", "radio", "checkbox-group", "datalist", "checklist"]);
 export const DISPLAY_ONLY_FIELD_TYPES = new Set(["heading", "instructions", "statement", "image"]);
 export const IMAGE_FIELD_TYPES = new Set(["image"]);

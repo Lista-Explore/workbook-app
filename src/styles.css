@@ -268,6 +268,84 @@
   accent-color: var(--wb-accent);
 }
 
+/* Progress checklist — deliberately grayscale only (black/gray/white),
+   no accent color, so it never clashes with whatever brand color the host
+   page applies elsewhere. */
+
+.wb-checklist-progress {
+  font-size: 0.8em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--wb-muted);
+}
+
+.wb-checklist {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--wb-border-strong);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--wb-surface);
+}
+
+.wb-checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  padding: 0.75em 0.9em;
+  transition: background-color 0.15s ease;
+}
+
+.wb-checklist-item:hover {
+  background: var(--wb-bg);
+}
+
+.wb-checklist-item + .wb-checklist-item {
+  border-top: 1px solid var(--wb-border);
+}
+
+.wb-checklist-item input[type="checkbox"] {
+  width: 19px;
+  height: 19px;
+  flex-shrink: 0;
+  accent-color: var(--wb-accent);
+}
+
+.wb-checklist-item label {
+  flex: 1;
+}
+
+.wb-checklist-item input:checked + label {
+  color: var(--wb-muted);
+  text-decoration: line-through;
+}
+
+.wb-checklist-item input:disabled {
+  cursor: not-allowed;
+}
+
+.wb-checklist-item input:disabled + label {
+  color: var(--wb-muted);
+}
+
+.wb-checklist-reset {
+  align-self: flex-end;
+  margin-top: 0.5em;
+  font: inherit;
+  font-size: 0.85em;
+  padding: 0.3em 0.1em;
+  border: none;
+  background: none;
+  color: var(--wb-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.wb-checklist-reset:hover {
+  color: var(--wb-text);
+}
+
 .wb-signature-input {
   font-family: "Segoe Script", "Brush Script MT", cursive;
   font-size: 1.2em;
