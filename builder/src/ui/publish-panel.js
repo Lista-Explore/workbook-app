@@ -16,7 +16,7 @@ registerAllFields();
 // styles.css or auto-mount.js itself changes — auto-mount.js's own job is
 // to resolve the latest commit dynamically for the runtime bundle
 // underneath it, so that part doesn't need this same manual update.
-const RUNTIME_COMMIT = "25355374f36b261756dcbd2111c07f9e7d77852b";
+const RUNTIME_COMMIT = "b478781cec1579314fcd8727846d80332a0f5d99";
 const RUNTIME_CSS_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@${RUNTIME_COMMIT}/src/styles.css`;
 const RUNTIME_LOADER_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@${RUNTIME_COMMIT}/src/auto-mount.js`;
 
