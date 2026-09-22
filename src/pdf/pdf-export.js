@@ -9,25 +9,17 @@ const MARGIN = 50;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 const GAP = 10;
 const MAX_IMAGE_HEIGHT = 160;
-// Matches the Runtime's actual computed spacing, not an approximation:
-// .lms-workbook's base font-size is 15px, and 1px (CSS, 96/in) = 0.75pt
-// (PDF, 72/in) — so an "Xem" value converts to X * 15 * 0.75 pt.
-//
-// .wb-column padding: 1.1em -> 1.1 * 15 * 0.75 = 12.375pt. A bordered
-// multi-column section should read like the on-screen table, not fields
-// flush against the divider lines with no breathing room.
-const COLUMN_PADDING = 12.375;
-// --wb-danger, the required-marker color.
+// Matches the Runtime's .wb-column padding (1.1em ~= 16px) and its red
+// required-marker color (--wb-danger: #b42318) — a bordered multi-column
+// section should read like the on-screen table, not fields flush against
+// the divider lines with no breathing room.
+const COLUMN_PADDING = 14;
 const REQUIRED_COLOR = rgb(0.706, 0.137, 0.094);
-// .wb-section margin-bottom: 1.25em -> 1.25 * 15 * 0.75 = 14.0625pt.
-const SECTION_GAP = 14.0625;
-// .wb-section itself: every section on screen is its own bordered,
-// padded card (title and fields both inside it) — not just the
-// multi-column ones. padding: 1.25em 1.4em -> 14.0625pt / 15.75pt.
-// border color is --wb-border: #e2e5ea.
-const SECTION_PADDING_Y = 14.0625;
-const SECTION_PADDING_X = 15.75;
-const SECTION_BORDER_COLOR = rgb(0.886, 0.898, 0.918);
+// Bug fix, not a design choice: without this, the next section's title is
+// drawn at the exact y the previous section ended on — flush against its
+// bottom border/last field, with zero gap. Matches the Runtime's own
+// .wb-section { margin-bottom: 1.25em } spacing between section boxes.
+const SECTION_GAP = 16;
 
 // Google's own font CDN — permanent, CORS-enabled (confirmed:
 // access-control-allow-origin: *), so these fetch identically whether this
@@ -364,20 +356,18 @@ export async function exportWorkbookPdf(config, data) {
     const wsValues = worksheetsData[worksheet.id] || {};
 
     for (const section of worksheet.sections || []) {
-      // Every section on screen is its own bordered, padded card — the
-      // title and its fields both sit inside that one box. Fields are
-      // computed here (query only, not drawn) purely to size that box
-      // before anything is drawn, so a single ensureSpace() call below
-      // keeps the whole card (border included) on one page instead of
-      // letting a page break land in the middle of it.
+      ensureSpace(18);
+      if (section.title) {
+        page.drawText(section.title, { x: MARGIN, y, size: 12, font: boldFont });
+        y -= 20;
+      }
+
       const columnCount = section.columns || 1;
       const fields = section.fields || [];
-      const sectionContentWidth = CONTENT_WIDTH - SECTION_PADDING_X * 2;
-      const colWidth = (sectionContentWidth - GAP * (columnCount - 1)) / columnCount;
+      const colWidth = (CONTENT_WIDTH - GAP * (columnCount - 1)) / columnCount;
       // A bordered multi-column table needs its own inset so fields don't
-      // sit flush against the divider lines — a single-column section has
-      // no inner border to breathe away from, so it stays unpadded (it
-      // already has the outer card's own padding).
+      // sit flush against the divider lines/outer border — a single-column
+      // section has no border to breathe away from, so it stays unpadded.
       const padX = columnCount > 1 ? COLUMN_PADDING : 0;
       const padTop = columnCount > 1 ? COLUMN_PADDING : 0;
       const padBottom = columnCount > 1 ? COLUMN_PADDING : 0;
@@ -391,25 +381,15 @@ export async function exportWorkbookPdf(config, data) {
       const columnHeights = columnGroups.map((col) =>
         col.reduce((sum, { item }) => sum + fieldRowHeight(item, embeddedImages, font, innerWidth, imageErrors, boldFont) + GAP, 0)
       );
-      const fieldsHeight = Math.max(0, ...columnHeights) + padTop + padBottom;
-      const titleHeight = section.title ? 20 : 0;
-      const boxHeight = SECTION_PADDING_Y * 2 + titleHeight + fieldsHeight;
-      ensureSpace(boxHeight);
-
-      const boxTop = y;
-      y -= SECTION_PADDING_Y;
-
-      if (section.title) {
-        page.drawText(section.title, { x: MARGIN + SECTION_PADDING_X, y, size: 12, font: boldFont });
-        y -= titleHeight;
-      }
+      const maxColumnHeight = Math.max(0, ...columnHeights) + padTop + padBottom;
+      ensureSpace(maxColumnHeight);
 
       const sectionStartY = y;
       let lowestY = sectionStartY;
 
       columnGroups.forEach((column, colIndex) => {
         let colY = sectionStartY - padTop;
-        const x = MARGIN + SECTION_PADDING_X + colIndex * (colWidth + GAP) + padX;
+        const x = MARGIN + colIndex * (colWidth + GAP) + padX;
 
         for (const { item: field } of column) {
           drawFieldOrPlaceholder({
@@ -431,20 +411,21 @@ export async function exportWorkbookPdf(config, data) {
         lowestY = Math.min(lowestY, colY - padBottom);
       });
 
-      // A multi-column section additionally gets its own inner border +
-      // column dividers, so it reads as a table within the card.
+      // A multi-column section gets a real border + column dividers, so it
+      // actually reads as a table instead of just floating groups of
+      // fields separated by whitespace.
       if (columnCount > 1) {
         const gridColor = rgb(0.82, 0.84, 0.87);
         page.drawRectangle({
-          x: MARGIN + SECTION_PADDING_X,
+          x: MARGIN,
           y: lowestY,
-          width: sectionContentWidth,
+          width: CONTENT_WIDTH,
           height: sectionStartY - lowestY,
           borderColor: gridColor,
           borderWidth: 1,
         });
         for (let colIndex = 1; colIndex < columnCount; colIndex++) {
-          const dividerX = MARGIN + SECTION_PADDING_X + colIndex * (colWidth + GAP) - GAP / 2;
+          const dividerX = MARGIN + colIndex * (colWidth + GAP) - GAP / 2;
           page.drawLine({
             start: { x: dividerX, y: sectionStartY },
             end: { x: dividerX, y: lowestY },
@@ -455,17 +436,7 @@ export async function exportWorkbookPdf(config, data) {
         }
       }
 
-      const boxBottom = lowestY - SECTION_PADDING_Y;
-      page.drawRectangle({
-        x: MARGIN,
-        y: boxBottom,
-        width: CONTENT_WIDTH,
-        height: boxTop - boxBottom,
-        borderColor: SECTION_BORDER_COLOR,
-        borderWidth: 1,
-      });
-
-      y = boxBottom - SECTION_GAP;
+      y = lowestY - SECTION_GAP;
     }
   });
 
