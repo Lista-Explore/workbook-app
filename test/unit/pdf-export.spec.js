@@ -314,4 +314,43 @@ describe("exportWorkbookPdf — image embedding", () => {
     const { errors } = await embedImageFields(pdfDoc, imageConfig);
     expect(errors.get("pic")).toContain("cross-origin");
   });
+
+  it("embeds URL images inside Content fields instead of printing a mute [Image] placeholder", async () => {
+    global.fetch = vi.fn((url) => {
+      if (url === "https://example.com/content.png") {
+        return Promise.resolve({
+          ok: true,
+          headers: { get: () => "image/png" },
+          arrayBuffer: async () => pngBytes().buffer,
+        });
+      }
+      return originalFetch(url);
+    });
+
+    const bytes = await exportWorkbookPdf({
+      id: "wb-content-image",
+      title: "Content PDF",
+      worksheets: [{
+        id: "ws1",
+        sections: [{
+          id: "s1",
+          fields: [
+            {
+              id: "content",
+              type: "content",
+              html: '<h2>Directions</h2><p><strong>Read this.</strong></p><figure><img src="https://example.com/content.png" alt="Diagram"><figcaption>Diagram caption</figcaption></figure>',
+              column: 0,
+            },
+            { id: "answer", type: "short-text", label: "Answer", column: 0 },
+          ],
+        }],
+      }],
+    }, {});
+    const pdfDoc = await PDFDocument.load(bytes);
+    expect(global.fetch).toHaveBeenCalledWith("https://example.com/content.png");
+    const page = pdfDoc.getPages()[0];
+    const xObjects = page.node.Resources().lookup(pdfDoc.context.obj("XObject"));
+    expect(xObjects).toBeDefined();
+    expect(pdfDoc.getForm().getFields().map((field) => field.getName())).toContain("answer");
+  });
 });

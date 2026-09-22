@@ -1,4 +1,4 @@
-import { contentText } from "../fields/content.js";
+import { sanitizeContent } from "../fields/content.js";
 import { PDFDocument, rgb } from "../vendor/pdf-lib.esm.js";
 import fontkit from "../vendor/fontkit.esm.js";
 import { DISPLAY_ONLY_FIELD_TYPES } from "../fields/index.js";
@@ -84,44 +84,82 @@ export async function embedImageFields(pdfDoc, config) {
   const errors = new Map();
   const jobs = [];
 
+  async function embedImage(key, src) {
+    try {
+      const normalizedSrc = normalizeImageSrc(src);
+      const { bytes, contentType } = await loadImageBytes(normalizedSrc);
+      const isPng = contentType.includes("png") || /^data:image\/png/i.test(normalizedSrc) || /\.png(\?|$)/i.test(normalizedSrc);
+      const isJpg =
+        contentType.includes("jpeg") ||
+        contentType.includes("jpg") ||
+        /^data:image\/jpe?g/i.test(normalizedSrc) ||
+        /\.jpe?g(\?|$)/i.test(normalizedSrc);
+      if (!isPng && !isJpg) {
+        throw new Error(`unsupported image type (only PNG/JPEG can be embedded)${contentType ? `, got "${contentType}"` : ""}`);
+      }
+      const image = isPng ? await pdfDoc.embedPng(bytes) : await pdfDoc.embedJpg(bytes);
+      embedded.set(key, image);
+    } catch (err) {
+      embedded.set(key, null);
+      const reason =
+        err instanceof TypeError
+          ? "the image's host blocked this from reading it (a cross-origin restriction on their end)"
+          : err.message;
+      errors.set(key, reason);
+    }
+  }
+
   for (const worksheet of config.worksheets || []) {
     for (const section of worksheet.sections || []) {
       for (const field of section.fields || []) {
-        if (field.type !== "image" || !field.src) continue;
-        jobs.push(
-          (async () => {
-            try {
-              const res = await fetch(field.src);
-              if (!res.ok) throw new Error(`server returned ${res.status} ${res.statusText || ""}`.trim());
-              const contentType = (res.headers.get("content-type") || "").toLowerCase();
-              const bytes = new Uint8Array(await res.arrayBuffer());
-              const isPng = contentType.includes("png") || /\.png(\?|$)/i.test(field.src);
-              const isJpg = contentType.includes("jpeg") || contentType.includes("jpg") || /\.jpe?g(\?|$)/i.test(field.src);
-              if (!isPng && !isJpg) {
-                throw new Error(`unsupported image type (only PNG/JPEG can be embedded)${contentType ? `, got "${contentType}"` : ""}`);
-              }
-              const image = isPng ? await pdfDoc.embedPng(bytes) : await pdfDoc.embedJpg(bytes);
-              embedded.set(field.id, image);
-            } catch (err) {
-              embedded.set(field.id, null);
-              // A cross-origin fetch blocked by the image host shows up as
-              // a generic, message-less TypeError — that's the signature,
-              // not a bug in this code, so name it plainly instead of
-              // surfacing pdf-lib's opaque "Failed to fetch".
-              const reason =
-                err instanceof TypeError
-                  ? "the image's host blocked this from reading it (a cross-origin restriction on their end)"
-                  : err.message;
-              errors.set(field.id, reason);
-            }
-          })()
-        );
+        if (field.type === "image" && field.src) {
+          jobs.push(embedImage(field.id, field.src));
+        }
+        if (field.type === "content") {
+          contentEntries(field).forEach((entry) => {
+            if (entry.type === "image" && entry.src) jobs.push(embedImage(entry.key, entry.src));
+          });
+        }
       }
     }
   }
 
   await Promise.all(jobs);
   return { embedded, errors };
+}
+
+function normalizeImageSrc(src) {
+  return String(src || "").replace(/^\/(data:image\/)/i, "$1");
+}
+
+async function loadImageBytes(src) {
+  if (/^data:image\//i.test(src)) {
+    const match = src.match(/^data:([^;,]+)(;base64)?,(.*)$/i);
+    if (!match) throw new Error("invalid data image URL");
+    const contentType = match[1].toLowerCase();
+    if (match[2]) {
+      const data = match[3].replace(/\s/g, "");
+      let binary;
+      try {
+        binary = atob(data);
+      } catch {
+        if (typeof Buffer === "undefined") throw new Error("invalid base64 image data");
+        binary = Buffer.from(data, "base64").toString("binary");
+      }
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return { bytes, contentType };
+    }
+    const data = decodeURIComponent(match[3]);
+    return { bytes: new TextEncoder().encode(data), contentType };
+  }
+
+  const res = await fetch(src);
+  if (!res.ok) throw new Error(`server returned ${res.status} ${res.statusText || ""}`.trim());
+  return {
+    bytes: new Uint8Array(await res.arrayBuffer()),
+    contentType: (res.headers.get("content-type") || "").toLowerCase(),
+  };
 }
 
 /** Scales an embedded image to fit within `maxWidth`, capped at MAX_IMAGE_HEIGHT. */
@@ -169,7 +207,7 @@ function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFon
     return wrapText(text, font, 8, width).length * LINE_HEIGHT + 8;
   }
   if (field.type === "content") {
-    return wrapText(contentText(field), font, 10, width).length * LINE_HEIGHT + 8;
+    return contentHeight(field, embeddedImages, font, boldFont || font, width, imageErrors);
   }
   if (field.type === "heading" || field.type === "instructions" || field.type === "statement") {
     const labelFont = field.type === "heading" ? boldFont || font : font;
@@ -228,6 +266,106 @@ function drawFieldLabel({ page, field, boldFont, x, y, width }) {
     lineY -= LINE_HEIGHT;
   });
   return lineY;
+}
+
+function contentImageKey(fieldId, index) {
+  return `${fieldId}__content_image__${index}`;
+}
+
+function nodeTextWithBreaks(node) {
+  const clone = node.cloneNode(true);
+  clone.querySelectorAll("br").forEach((br) => br.replaceWith("\n"));
+  clone.querySelectorAll("li").forEach((li) => li.prepend("• "));
+  clone.querySelectorAll("td,th").forEach((cell) => cell.append("  "));
+  clone.querySelectorAll("tr,p,div,h1,h2,h3,h4,h5,h6,li,blockquote").forEach((el) => el.append("\n"));
+  return clone.textContent.replace(/[ \t]+\n/g, "\n").trim();
+}
+
+function textStyleForNode(node) {
+  const tag = node.tagName ? node.tagName.toLowerCase() : "";
+  const strong = !!node.querySelector?.("strong,b") || ["strong", "b", "h1", "h2", "h3", "h4", "h5", "h6"].includes(tag);
+  const sizeByTag = { h1: 18, h2: 16, h3: 14, h4: 12, h5: 11, h6: 10 };
+  return { bold: strong, size: sizeByTag[tag] || 10 };
+}
+
+function contentEntries(field) {
+  const host = document.createElement("div");
+  host.innerHTML = sanitizeContent(field.html);
+  const entries = [];
+  let imageIndex = 0;
+
+  function visit(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent.trim();
+      if (text) entries.push({ type: "text", text, bold: false, size: 10 });
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+    const tag = node.tagName.toLowerCase();
+    if (tag === "img") {
+      const src = node.getAttribute("src") || "";
+      entries.push({ type: "image", src, alt: node.getAttribute("alt") || "", key: contentImageKey(field.id, imageIndex++) });
+      return;
+    }
+    if (tag === "figure") {
+      const img = node.querySelector("img");
+      if (img) {
+        const src = img.getAttribute("src") || "";
+        entries.push({ type: "image", src, alt: img.getAttribute("alt") || "", key: contentImageKey(field.id, imageIndex++) });
+      }
+      const caption = node.querySelector("figcaption");
+      if (caption?.textContent.trim()) entries.push({ type: "text", text: caption.textContent.trim(), bold: false, size: 8, muted: true });
+      return;
+    }
+
+    const text = nodeTextWithBreaks(node);
+    if (text) entries.push({ type: "text", text, muted: tag === "figcaption", ...textStyleForNode(node) });
+  }
+
+  const children = Array.from(host.childNodes);
+  if (children.length === 0 && host.textContent.trim()) entries.push({ type: "text", text: host.textContent.trim(), bold: false, size: 10 });
+  children.forEach(visit);
+  return entries;
+}
+
+function contentHeight(field, embeddedImages, font, boldFont, width, imageErrors) {
+  const entries = contentEntries(field);
+  if (entries.length === 0) return LINE_HEIGHT;
+  return entries.reduce((total, entry) => {
+    if (entry.type === "image") {
+      const image = embeddedImages?.get(entry.key);
+      if (image) return total + scaledImageSize(image, width).height + GAP;
+      const reason = imageErrors?.get(entry.key);
+      const text = `[image not embedded${reason ? `: ${reason}` : entry.alt ? `: ${entry.alt}` : ""}]`;
+      return total + wrapText(text, font, 8, width).length * LINE_HEIGHT + GAP;
+    }
+    const entryFont = entry.bold ? boldFont : font;
+    return total + wrapText(entry.text, entryFont, entry.size, width).length * (entry.size + 3) + 4;
+  }, 4);
+}
+
+function drawContent({ page, field, embeddedImages, imageErrors, font, boldFont, x, y, width }) {
+  let cursorY = y;
+  for (const entry of contentEntries(field)) {
+    if (entry.type === "image") {
+      const image = embeddedImages?.get(entry.key);
+      if (image) {
+        const { width: w, height: h } = scaledImageSize(image, width);
+        page.drawImage(image, { x, y: cursorY - h, width: w, height: h });
+        cursorY -= h + GAP;
+      } else {
+        const reason = imageErrors?.get(entry.key);
+        const text = `[image not embedded${reason ? `: ${reason}` : entry.alt ? `: ${entry.alt}` : ""}]`;
+        cursorY = drawWrappedText({ page, text, font, size: 8, x, y: cursorY, width, color: rgb(0.55, 0.15, 0.15) }) - 4;
+      }
+      continue;
+    }
+
+    const entryFont = entry.bold ? boldFont : font;
+    const color = entry.muted ? rgb(0.4, 0.4, 0.4) : rgb(0, 0, 0);
+    cursorY = drawWrappedText({ page, text: entry.text, font: entryFont, size: entry.size, x, y: cursorY, width, color }) - 4;
+  }
 }
 
 function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
@@ -386,7 +524,7 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
 /** Draws one field — an actual embedded image when available, its display-only text, or its form widget. */
 function drawFieldOrPlaceholder({ form, font, boldFont, page, field, value, x, y, width, embeddedImages, imageErrors }) {
   if (field.type === "content") {
-    drawWrappedText({ page, text: contentText(field), font, size: 10, x, y, width, color: rgb(0, 0, 0) });
+    drawContent({ page, field, embeddedImages, imageErrors, font, boldFont, x, y, width });
     return;
   }
   if (field.type === "image") {
