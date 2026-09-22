@@ -345,19 +345,15 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
         cb.addToPage(page, { x: x + 8, y: rowTopY - 16, width: 12, height: 12 });
         if (isChecked) cb.check();
 
-        const textColor = isChecked ? mutedColor : rgb(0, 0, 0);
+        // No strikethrough here: it's fixed artwork drawn once at export
+        // time, but the checkbox right next to it is a real, live,
+        // interactive PDF form field — someone can check/uncheck it inside
+        // the PDF itself, and that drawn line can never follow along. A
+        // static decoration that visibly desyncs from the interactive
+        // field beside it is worse than just leaving it off.
         const textX = x + 28;
         const textY = rowTopY - 13;
-        page.drawText(option, { x: textX, y: textY, size: 9, font, color: textColor });
-        if (isChecked) {
-          const textWidth = font.widthOfTextAtSize(option, 9);
-          page.drawLine({
-            start: { x: textX, y: textY + 3.2 },
-            end: { x: textX + textWidth, y: textY + 3.2 },
-            thickness: 0.75,
-            color: textColor,
-          });
-        }
+        page.drawText(option, { x: textX, y: textY, size: 9, font, color: rgb(0, 0, 0) });
         if (index > 0) {
           page.drawLine({
             start: { x, y: rowTopY },
