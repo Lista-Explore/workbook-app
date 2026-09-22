@@ -2,8 +2,9 @@ import { FieldRegistry } from "../fields/registry.js";
 import { groupByColumn } from "../core/column-layout.js";
 
 /**
- * Renders a section: an optional collapsible wrapper, and a fields area
- * laid out in 1/2/3 columns. Columns are genuine independent vertical
+ * Renders a section: a collapsible <details>/<summary> wrapper (every
+ * section uses this, not a per-section choice), and a fields area laid
+ * out in 1/2/3 columns. Columns are genuine independent vertical
  * stacks, based on each field's own stored `column` index — not a
  * left-right grid of pairs, and not recomputed from the total field count
  * (which would reshuffle other columns' contents every time a field is
@@ -16,29 +17,23 @@ import { groupByColumn } from "../core/column-layout.js";
  * `onFieldChange(fieldId, value)` is called whenever a field's value changes.
  */
 export function renderSection(section, { values = {}, onFieldChange } = {}) {
-  const isCollapsible = Boolean(section.collapsible);
-  const container = document.createElement(isCollapsible ? "details" : "div");
+  // Every section uses the collapsible <details>/<summary> element — not a
+  // per-section choice.
+  const container = document.createElement("details");
   container.className = "wb-section";
   container.dataset.sectionId = section.id;
 
-  if (isCollapsible) {
-    if (!section.startCollapsed) container.open = true;
-    const summary = document.createElement("summary");
-    // "content-summary" is the LMS's own disclosure-banner class — reusing
-    // it here (rather than inventing our own look) means this picks up
-    // that design automatically wherever the host page's own stylesheet is
-    // already loaded, with no new visual CSS of our own.
-    summary.className = "wb-section-title content-summary";
-    const titleWrap = document.createElement("div");
-    titleWrap.textContent = section.title || "";
-    summary.appendChild(titleWrap);
-    container.appendChild(summary);
-  } else if (section.title) {
-    const title = document.createElement("h2");
-    title.className = "wb-section-title";
-    title.textContent = section.title;
-    container.appendChild(title);
-  }
+  if (!section.startCollapsed) container.open = true;
+  const summary = document.createElement("summary");
+  // "content-summary" is the LMS's own disclosure-banner class — reusing
+  // it here (rather than inventing our own look) means this picks up that
+  // design automatically wherever the host page's own stylesheet is
+  // already loaded, with no new visual CSS of our own.
+  summary.className = "wb-section-title content-summary";
+  const titleWrap = document.createElement("div");
+  titleWrap.textContent = section.title || "";
+  summary.appendChild(titleWrap);
+  container.appendChild(summary);
 
   const fieldsContainer = document.createElement("div");
   fieldsContainer.className = "wb-section-fields";

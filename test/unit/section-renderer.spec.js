@@ -16,21 +16,15 @@ const baseSection = {
 };
 
 describe("renderSection", () => {
-  it("renders a plain (non-collapsible) section as a div with a heading", () => {
+  it("renders every section as a collapsible <details>/<summary> — not a per-section choice", () => {
     const el = renderSection(baseSection);
-    expect(el.tagName).toBe("DIV");
-    expect(el.querySelector("h2").textContent).toBe("Basic Information");
-  });
-
-  it("renders a collapsible section as <details>/<summary>", () => {
-    const el = renderSection({ ...baseSection, collapsible: true });
     expect(el.tagName).toBe("DETAILS");
     expect(el.querySelector("summary").textContent).toBe("Basic Information");
     expect(el.open).toBe(true);
   });
 
   it("starts collapsed when startCollapsed is set", () => {
-    const el = renderSection({ ...baseSection, collapsible: true, startCollapsed: true });
+    const el = renderSection({ ...baseSection, startCollapsed: true });
     expect(el.open).toBe(false);
   });
 

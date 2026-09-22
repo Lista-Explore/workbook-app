@@ -43,17 +43,6 @@ export function renderSectionEditor(container, state, worksheetId, onChange, onL
     });
     columnsLabel.appendChild(columnsSelect);
 
-    const collapsibleLabel = document.createElement("label");
-    const collapsibleCheckbox = document.createElement("input");
-    collapsibleCheckbox.type = "checkbox";
-    collapsibleCheckbox.checked = Boolean(section.collapsible);
-    collapsibleCheckbox.addEventListener("change", () => {
-      state.updateSection(worksheetId, section.id, { collapsible: collapsibleCheckbox.checked });
-      onChange(); // structural: reveals/hides the "starts collapsed" control
-    });
-    collapsibleLabel.appendChild(collapsibleCheckbox);
-    collapsibleLabel.appendChild(document.createTextNode(" Student can collapse this section"));
-
     const startCollapsedLabel = document.createElement("label");
     const startCollapsedCheckbox = document.createElement("input");
     startCollapsedCheckbox.type = "checkbox";
@@ -80,8 +69,7 @@ export function renderSectionEditor(container, state, worksheetId, onChange, onL
 
     card.appendChild(titleInput);
     card.appendChild(columnsLabel);
-    card.appendChild(collapsibleLabel);
-    if (section.collapsible) card.appendChild(startCollapsedLabel);
+    card.appendChild(startCollapsedLabel);
     card.appendChild(fieldsContainer);
     card.appendChild(removeSectionBtn);
 

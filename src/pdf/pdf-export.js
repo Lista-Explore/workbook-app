@@ -380,15 +380,12 @@ export async function exportWorkbookPdf(config, data) {
 
     for (const section of worksheet.sections || []) {
       ensureSpace(18);
+      // Every section is the collapsible banner element now, not a
+      // per-section choice — same as the Runtime/Builder.
       if (section.title) {
-        if (section.collapsible) {
-          ensureSpace(COLLAPSIBLE_BANNER_HEIGHT + 12);
-          drawCollapsibleBanner({ page, text: section.title, font: boldFont, x: MARGIN, y, width: CONTENT_WIDTH, height: COLLAPSIBLE_BANNER_HEIGHT });
-          y -= COLLAPSIBLE_BANNER_HEIGHT + 12;
-        } else {
-          page.drawText(section.title, { x: MARGIN, y, size: 12, font: boldFont });
-          y -= 20;
-        }
+        ensureSpace(COLLAPSIBLE_BANNER_HEIGHT + 12);
+        drawCollapsibleBanner({ page, text: section.title, font: boldFont, x: MARGIN, y, width: CONTENT_WIDTH, height: COLLAPSIBLE_BANNER_HEIGHT });
+        y -= COLLAPSIBLE_BANNER_HEIGHT + 12;
       }
 
       const columnCount = section.columns || 1;

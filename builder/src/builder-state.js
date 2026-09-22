@@ -87,10 +87,11 @@ export class BuilderState {
     return worksheet;
   }
 
-  addSection(worksheetId, { title = "New section", columns = 1, collapsible = false } = {}) {
+  addSection(worksheetId, { title = "New section", columns = 1 } = {}) {
     const worksheet = this._findWorksheet(worksheetId);
     const id = generateId(title, worksheet.sections.length, this._usedSectionIds);
-    const section = { id, title, columns, collapsible, startCollapsed: false, fields: [] };
+    // Every section uses the collapsible element — not a per-section choice.
+    const section = { id, title, columns, collapsible: true, startCollapsed: false, fields: [] };
     worksheet.sections.push(section);
     return section;
   }

@@ -34,7 +34,7 @@ describe("auto-mount.js — the one-time setup's loader", () => {
     expect(document.head.querySelector('link[rel="stylesheet"]')).toBeNull();
   });
 
-  it("falls back to a cache-busted @main URL if the GitHub API lookup fails, instead of breaking", async () => {
+  it("falls back to a hardcoded commit-pinned jsDelivr URL (never jsDelivr's @main, the exact stale-cache bug this loader exists to dodge, and never raw.githubusercontent.com, which serves text/plain and can't run as a module script) if the GitHub API lookup fails", async () => {
     global.fetch = vi.fn().mockRejectedValue(new Error("offline"));
 
     const url = `../../src/auto-mount.js?t=${Math.random()}`;
@@ -43,7 +43,7 @@ describe("auto-mount.js — the one-time setup's loader", () => {
     const script = document.head.querySelector("script[type=module]");
     expect(script).not.toBeNull();
     expect(script.src).toMatch(
-      /^https:\/\/cdn\.jsdelivr\.net\/gh\/Lista-Explore\/workbook-app@main\/src\/dist\/runtime\.bundle\.js\?t=\d+$/
+      /^https:\/\/cdn\.jsdelivr\.net\/gh\/Lista-Explore\/workbook-app@[0-9a-f]{40}\/src\/dist\/runtime\.bundle\.js$/
     );
   });
 });

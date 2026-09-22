@@ -68,9 +68,9 @@ describe("BuilderState — workbook id derivation", () => {
 });
 
 describe("BuilderState — sections", () => {
-  it("adds a section to a worksheet with the given columns/collapsible settings", () => {
+  it("adds a section to a worksheet with the given columns, always collapsible", () => {
     const ws = state.addWorksheet("WS1");
-    const section = state.addSection(ws.id, { title: "Basic Info", columns: 2, collapsible: true });
+    const section = state.addSection(ws.id, { title: "Basic Info", columns: 2 });
     expect(section.columns).toBe(2);
     expect(section.collapsible).toBe(true);
     expect(ws.sections).toHaveLength(1);
