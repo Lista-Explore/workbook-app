@@ -545,5 +545,12 @@ export async function exportWorkbookPdf(config, data) {
     }
   });
 
+  // Without this, some PDF viewers render certain checkboxes' checked
+  // state inconsistently (a well-known pdf-lib quirk) — the field's real
+  // value is correct, but the viewer's own default appearance stream
+  // doesn't reliably reflect it unless every field's appearance is
+  // explicitly regenerated once, right before saving.
+  form.updateFieldAppearances(font);
+
   return pdfDoc.save();
 }

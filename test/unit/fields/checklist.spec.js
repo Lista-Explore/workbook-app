@@ -9,7 +9,11 @@ const field = {
   options: ["Read the brief", "Draft an outline", "Write the report"],
 };
 
-const lockedField = { ...field, sequentialLock: true };
+// Item 1 depends on item 0, item 2 depends on item 0 too (not a chain —
+// both unlock as soon as the first item is checked, exactly the
+// "item 4 depends on item 1, skipping the ones in between" shape this
+// needs to support).
+const dependentField = { ...field, dependsOn: [null, 0, 0] };
 
 describe("checklist field", () => {
   it("renders one checkbox per item", () => {
@@ -43,38 +47,38 @@ describe("checklist field", () => {
     expect(wrapper.querySelector(".wb-checklist-progress").textContent).toBe("1 of 3 done");
   });
 
-  it("without sequential lock, every item starts enabled", () => {
+  it("without any dependsOn set, every item starts enabled", () => {
     const wrapper = checklist.render(field, []);
     const boxes = wrapper.querySelectorAll(".wb-checklist-item input");
     expect([...boxes].every((box) => !box.disabled)).toBe(true);
   });
 
-  it("with sequential lock, only the first item starts enabled", () => {
-    const wrapper = checklist.render(lockedField, []);
+  it("an item with dependsOn set starts disabled until its prerequisite is checked", () => {
+    const wrapper = checklist.render(dependentField, []);
     const boxes = wrapper.querySelectorAll(".wb-checklist-item input");
     expect(boxes[0].disabled).toBe(false);
     expect(boxes[1].disabled).toBe(true);
     expect(boxes[2].disabled).toBe(true);
   });
 
-  it("with sequential lock, checking item N unlocks item N+1", () => {
-    const wrapper = checklist.render(lockedField, []);
+  it("checking the prerequisite unlocks every item that depends on it, not just the next one", () => {
+    const wrapper = checklist.render(dependentField, []);
     const boxes = wrapper.querySelectorAll(".wb-checklist-item input");
     boxes[0].checked = true;
     boxes[0].dispatchEvent(new Event("change", { bubbles: true }));
     expect(boxes[1].disabled).toBe(false);
-    expect(boxes[2].disabled).toBe(true);
+    expect(boxes[2].disabled).toBe(false);
   });
 
-  it("with sequential lock, unchecking item N re-locks (and un-checks) item N+1", () => {
-    const wrapper = checklist.render(lockedField, ["Read the brief", "Draft an outline"]);
+  it("unchecking the prerequisite re-locks (and un-checks) every dependent item", () => {
+    const wrapper = checklist.render(dependentField, ["Read the brief", "Draft an outline", "Write the report"]);
     const boxes = wrapper.querySelectorAll(".wb-checklist-item input");
-    // Both start checked via pre-fill, but syncChecklistState only re-locks
-    // on a live change event — uncheck the first item to trigger it.
     boxes[0].checked = false;
     boxes[0].dispatchEvent(new Event("change", { bubbles: true }));
     expect(boxes[1].disabled).toBe(true);
     expect(boxes[1].checked).toBe(false);
+    expect(boxes[2].disabled).toBe(true);
+    expect(boxes[2].checked).toBe(false);
   });
 
   it("the reset button unchecks every item and fires a change event", () => {

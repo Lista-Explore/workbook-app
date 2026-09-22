@@ -97,6 +97,37 @@ describe("domToConfig — reconstructing structure from already-rendered HTML", 
     expect(fields.find((f) => f.id === "d").options).toEqual(["X", "Y"]);
   });
 
+  it("recovers a checklist's options and per-item dependsOn (item 2 can depend on item 0 directly, not just the one before it)", () => {
+    const config = {
+      id: "wb-checklist",
+      worksheets: [
+        {
+          id: "ws1",
+          sections: [
+            {
+              id: "s1",
+              fields: [
+                {
+                  id: "steps",
+                  type: "checklist",
+                  label: "Steps",
+                  options: ["First", "Second", "Third"],
+                  dependsOn: [null, null, 0],
+                  column: 0,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const rebuilt = renderAndReconstruct(config);
+    const field = rebuilt.worksheets[0].sections[0].fields[0];
+    expect(field.options).toEqual(["First", "Second", "Third"]);
+    expect(field.dependsOn).toEqual([null, null, 0]);
+  });
+
   it("recovers a checkbox field's label and required flag from its inline ' *' marker", () => {
     const config = {
       id: "wb4",

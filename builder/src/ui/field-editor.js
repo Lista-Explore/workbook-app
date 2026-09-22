@@ -49,6 +49,95 @@ function renderOptionsEditor(field, onChange, onLightChange) {
   return wrap;
 }
 
+/** Fixes up a checklist's dependsOn array after item `removedIndex` is
+ * deleted: any item that depended on it is unlocked (dependsOn -> null),
+ * and every reference to a later index shifts down by one to stay
+ * pointing at the same item. */
+function removeChecklistDependsOnIndex(dependsOn, removedIndex) {
+  return dependsOn
+    .filter((_, i) => i !== removedIndex)
+    .map((dep) => {
+      if (dep === removedIndex) return null;
+      if (typeof dep === "number" && dep > removedIndex) return dep - 1;
+      return dep;
+    });
+}
+
+/**
+ * A checklist's own item editor — like renderOptionsEditor, but each item
+ * also gets a "Depends on" picker so unlocking isn't limited to "the item
+ * right before this one": item 4 can depend on item 1 directly, or on
+ * nothing at all. Replaces the generic options editor for this type since
+ * that per-item dependency picker has no equivalent there.
+ */
+function renderChecklistItemsEditor(field, onChange, onLightChange) {
+  const wrap = document.createElement("div");
+  wrap.className = "builder-options-editor";
+
+  const options = field.options || (field.options = []);
+  const dependsOn = field.dependsOn || (field.dependsOn = options.map(() => null));
+  while (dependsOn.length < options.length) dependsOn.push(null);
+
+  options.forEach((option, index) => {
+    const row = document.createElement("div");
+    row.className = "builder-option-row";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = option;
+    input.addEventListener("input", () => {
+      options[index] = input.value;
+      // Not just a light refresh: other items' "Depends on" dropdowns
+      // show this item's label as an option and need to reflect the edit.
+      onChange({ options, dependsOn });
+    });
+
+    const dependsSelect = document.createElement("select");
+    const noneOpt = document.createElement("option");
+    noneOpt.value = "";
+    noneOpt.textContent = "Doesn't depend on anything";
+    dependsSelect.appendChild(noneOpt);
+    options.forEach((otherOption, otherIndex) => {
+      if (otherIndex === index) return;
+      const opt = document.createElement("option");
+      opt.value = String(otherIndex);
+      opt.textContent = `Depends on: ${otherOption || `Item ${otherIndex + 1}`}`;
+      dependsSelect.appendChild(opt);
+    });
+    dependsSelect.value = Number.isInteger(dependsOn[index]) ? String(dependsOn[index]) : "";
+    dependsSelect.addEventListener("change", () => {
+      dependsOn[index] = dependsSelect.value === "" ? null : Number(dependsSelect.value);
+      onLightChange();
+    });
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.textContent = "Remove option";
+    removeBtn.addEventListener("click", () => {
+      onChange({
+        options: options.filter((_, i) => i !== index),
+        dependsOn: removeChecklistDependsOnIndex(dependsOn, index),
+      });
+    });
+
+    row.appendChild(input);
+    row.appendChild(dependsSelect);
+    row.appendChild(removeBtn);
+    wrap.appendChild(row);
+  });
+
+  const addOptionBtn = document.createElement("button");
+  addOptionBtn.type = "button";
+  addOptionBtn.className = "builder-add-option-btn";
+  addOptionBtn.textContent = "+ Add option";
+  addOptionBtn.addEventListener("click", () => {
+    onChange({ options: [...options, `Option ${options.length + 1}`], dependsOn: [...dependsOn, null] });
+  });
+  wrap.appendChild(addOptionBtn);
+
+  return wrap;
+}
+
 function buildDefaultFieldConfig(type, column) {
   const needsOptions = OPTIONS_FIELD_TYPES.has(type);
   const isImage = IMAGE_FIELD_TYPES.has(type);
@@ -181,7 +270,18 @@ function renderFieldRow({ field, index, fieldCount, state, worksheetId, sectionI
     row.appendChild(requiredLabel);
   }
 
-  if (OPTIONS_FIELD_TYPES.has(field.type)) {
+  if (field.type === "checklist") {
+    row.appendChild(
+      renderChecklistItemsEditor(
+        field,
+        (patch) => {
+          state.updateField(worksheetId, sectionId, field.id, patch);
+          onChange();
+        },
+        onLightChange
+      )
+    );
+  } else if (OPTIONS_FIELD_TYPES.has(field.type)) {
     row.appendChild(
       renderOptionsEditor(
         field,
@@ -192,20 +292,6 @@ function renderFieldRow({ field, index, fieldCount, state, worksheetId, sectionI
         onLightChange
       )
     );
-  }
-
-  if (field.type === "checklist") {
-    const lockLabel = document.createElement("label");
-    const lockCheckbox = document.createElement("input");
-    lockCheckbox.type = "checkbox";
-    lockCheckbox.checked = Boolean(field.sequentialLock);
-    lockCheckbox.addEventListener("change", () => {
-      state.updateField(worksheetId, sectionId, field.id, { sequentialLock: lockCheckbox.checked });
-      onChange();
-    });
-    lockLabel.appendChild(lockCheckbox);
-    lockLabel.appendChild(document.createTextNode(" Each item unlocks only after the one before it is checked"));
-    row.appendChild(lockLabel);
   }
 
   const removeBtn = document.createElement("button");

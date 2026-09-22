@@ -486,6 +486,11 @@ input.builder-section-title-input:focus {
   background: var(--bd-surface);
 }
 
+.builder-option-row select {
+  background: var(--bd-surface);
+  min-width: 14em;
+}
+
 .builder-add-option-btn {
   align-self: flex-start;
   background: transparent;

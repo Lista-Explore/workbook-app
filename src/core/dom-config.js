@@ -46,11 +46,15 @@ function fieldConfigFromWrapper(wrapper, column) {
     return { ...base, options };
   }
   if (type === "checklist") {
-    const options = Array.from(wrapper.querySelectorAll(".wb-checklist-item input")).map((input) => {
+    const inputs = Array.from(wrapper.querySelectorAll(".wb-checklist-item input"));
+    const options = inputs.map((input) => {
       const optLabel = wrapper.querySelector(`label[for="${input.id}"]`);
       return optLabel ? optLabel.textContent.trim() : input.value;
     });
-    return { ...base, options, sequentialLock: wrapper.dataset.sequentialLock === "true" };
+    const dependsOn = inputs.map((input) =>
+      input.dataset.dependsOn !== undefined && input.dataset.dependsOn !== "" ? Number(input.dataset.dependsOn) : null
+    );
+    return { ...base, options, dependsOn };
   }
   if (type === "dropdown") {
     const options = Array.from(wrapper.querySelectorAll("select option"))

@@ -3,24 +3,24 @@ import { slugify } from "../core/id-generator.js";
 
 /**
  * Re-reads every checkbox's checked state and: updates the "X of N done"
- * count, and — when the wrapper's sequential-lock flag is on — disables
- * (and un-checks, so a locked item can never sit checked) every item whose
- * predecessor isn't checked yet. Called after render, after every checkbox
- * change, and after reset/setValue, so this is the single source of truth
- * for the list's enabled/checked state rather than something re-derived ad
- * hoc. Reads the lock flag off `wrapper.dataset` (set once at render time)
- * rather than taking `field` as a parameter, since setValue() is called
- * generically with just (wrapper, value) everywhere else in this app.
+ * count, and disables (and un-checks, so a locked item can never sit
+ * checked) any item whose prerequisite — read from its own
+ * `data-depends-on` attribute (the *other* item's index, not necessarily
+ * the one right before it) — isn't checked yet. Called after render,
+ * after every checkbox change, and after reset/setValue, so this is the
+ * single source of truth for the list's enabled/checked state rather than
+ * something re-derived ad hoc.
  */
 function syncChecklistState(wrapper) {
   const boxes = [...wrapper.querySelectorAll(".wb-checklist-item input[type=checkbox]")];
-  if (wrapper.dataset.sequentialLock === "true") {
-    boxes.forEach((box, index) => {
-      const locked = index > 0 && !boxes[index - 1].checked;
-      box.disabled = locked;
-      if (locked && box.checked) box.checked = false;
-    });
-  }
+  boxes.forEach((box) => {
+    const dependsOn = box.dataset.dependsOn;
+    if (dependsOn === undefined || dependsOn === "") return;
+    const prerequisite = boxes[Number(dependsOn)];
+    const locked = prerequisite ? !prerequisite.checked : false;
+    box.disabled = locked;
+    if (locked && box.checked) box.checked = false;
+  });
   const progress = wrapper.querySelector(".wb-checklist-progress");
   if (progress) {
     const done = boxes.filter((box) => box.checked).length;
@@ -31,8 +31,8 @@ function syncChecklistState(wrapper) {
 export const checklist = {
   render(field, value) {
     const checked = new Set(Array.isArray(value) ? value : []);
+    const dependsOn = field.dependsOn || [];
     const wrapper = createWrapper(field);
-    wrapper.dataset.sequentialLock = field.sequentialLock ? "true" : "false";
     wrapper.appendChild(createLabel(field, null));
 
     const progress = document.createElement("div");
@@ -53,6 +53,9 @@ export const checklist = {
       input.name = field.id;
       input.value = item;
       input.checked = checked.has(item);
+      if (Number.isInteger(dependsOn[index])) {
+        input.dataset.dependsOn = String(dependsOn[index]);
+      }
 
       const label = document.createElement("label");
       label.setAttribute("for", itemId);
