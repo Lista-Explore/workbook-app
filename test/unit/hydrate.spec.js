@@ -122,6 +122,59 @@ describe("hydrateWorkbook", () => {
     expect(panels[1].hidden).toBe(false);
   });
 
+  it("a checklist's lock/progress/reset logic survives a real static-HTML round trip (regression: checklist.js's own render() attaches its change listener directly — unlike the tabs above, that listener is lost the same way once the markup is serialized and reparsed as plain HTML, and hydrate.js didn't re-wire it)", async () => {
+    const config = {
+      id: "hydrate-checklist",
+      worksheets: [
+        {
+          id: "ws1",
+          sections: [
+            {
+              id: "s1",
+              fields: [
+                {
+                  id: "steps",
+                  type: "checklist",
+                  label: "Steps",
+                  options: ["Item 1", "Item 2", "Item 3", "Item 4"],
+                  dependsOn: [null, null, null, 0],
+                  column: 0,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    // Render once, then serialize to a plain HTML string and reparse it into
+    // a fresh, detached container — the only way to actually test "no JS
+    // closures survive", since directly reusing the rendered node would
+    // still carry render()'s own listener and mask this exact bug.
+    const original = document.createElement("div");
+    original.dataset.workbook = "hydrate-checklist";
+    renderWorkbook(config, original);
+    const container = document.createElement("div");
+    container.innerHTML = original.outerHTML;
+    const mount = container.firstElementChild;
+    document.body.appendChild(mount);
+
+    await hydrateWorkbook(mount);
+
+    const boxes = mount.querySelectorAll(".wb-checklist-item input");
+    expect(boxes[3].disabled).toBe(true);
+
+    boxes[0].checked = true;
+    boxes[0].dispatchEvent(new Event("change", { bubbles: true }));
+    expect(boxes[3].disabled).toBe(false);
+    expect(mount.querySelector(".wb-checklist-progress").textContent).toBe("1 of 4 done");
+
+    mount.querySelector(".wb-checklist-reset").click();
+    expect([...boxes].every((box) => !box.checked)).toBe(true);
+    expect(boxes[3].disabled).toBe(true);
+    expect(mount.querySelector(".wb-checklist-progress").textContent).toBe("0 of 4 done");
+  });
+
   it("a typed value actually reaches the exported PDF (regression: worksheet id mismatch made every field blank)", async () => {
     const id = "hydrate-pdf-values";
     const mount = mountStatic(id);

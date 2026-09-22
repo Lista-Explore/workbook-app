@@ -10,8 +10,14 @@ import { slugify } from "../core/id-generator.js";
  * after every checkbox change, and after reset/setValue, so this is the
  * single source of truth for the list's enabled/checked state rather than
  * something re-derived ad hoc.
+ *
+ * Exported so hydrate.js can re-wire this on a checklist that was already
+ * static HTML when the page loaded (its own change listener, attached
+ * below in render(), only exists on a checklist this module rendered
+ * itself in this same page load — plain HTML serialization carries the
+ * markup and the `data-depends-on` attributes, but never a JS closure).
  */
-function syncChecklistState(wrapper) {
+export function syncChecklistState(wrapper) {
   const boxes = [...wrapper.querySelectorAll(".wb-checklist-item input[type=checkbox]")];
   boxes.forEach((box) => {
     const dependsOn = box.dataset.dependsOn;

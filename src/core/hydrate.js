@@ -5,6 +5,7 @@ import { exportWorkbookPdf } from "../pdf/pdf-export.js";
 import { importWorkbookPdf } from "../pdf/pdf-import.js";
 import { domToConfig } from "./dom-config.js";
 import { selectTab, showWorksheetPanel } from "./navigation.js";
+import { syncChecklistState } from "../fields/checklist.js";
 
 const AUTOSAVE_DELAY_MS = 400;
 
@@ -123,6 +124,27 @@ export async function hydrateWorkbook(rootEl) {
       });
     });
   }
+
+  // Same problem as the tabs above, for a different element: a checklist's
+  // lock/progress logic and its "Reset checklist" button both only exist as
+  // JS closures set up inside checklist.js's own render() — lost the same
+  // way on a pasted, already-static checklist until rewired here.
+  rootEl.querySelectorAll(".wb-checklist").forEach((list) => {
+    const wrapper = list.closest(".wb-field");
+    if (!wrapper) return;
+    list.addEventListener("change", () => syncChecklistState(wrapper));
+    syncChecklistState(wrapper);
+  });
+  rootEl.querySelectorAll(".wb-checklist-reset").forEach((resetBtn) => {
+    const wrapper = resetBtn.closest(".wb-field");
+    const list = wrapper?.querySelector(".wb-checklist");
+    if (!wrapper || !list) return;
+    resetBtn.addEventListener("click", () => {
+      list.querySelectorAll("input[type=checkbox]").forEach((box) => (box.checked = false));
+      syncChecklistState(wrapper);
+      wrapper.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  });
 
   const adapter = {
     config,
