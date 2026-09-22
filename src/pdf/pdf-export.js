@@ -15,11 +15,34 @@ const MAX_IMAGE_HEIGHT = 160;
 // the divider lines with no breathing room.
 const COLUMN_PADDING = 14;
 const REQUIRED_COLOR = rgb(0.706, 0.137, 0.094);
-// Bug fix, not a design choice: without this, the next section's title is
-// drawn at the exact y the previous section ended on — flush against its
-// bottom border/last field, with zero gap. Matches the Runtime's own
-// .wb-section { margin-bottom: 1.25em } spacing between section boxes.
-const SECTION_GAP = 16;
+
+// A collapsible section's title is a colored banner on screen (the host
+// LMS's own ".content-summary" class), not plain text — matching that in
+// the PDF using the exact colors from the host's own uploaded stylesheet
+// (builder/savanna-styles-FIT.css: --color-secondary, --color-accent,
+// --color-light), not invented ones. pdf-lib has no native gradient fill,
+// so this approximates the CSS's left-to-right gradient by painting many
+// thin adjacent rectangles with linearly interpolated color.
+const COLLAPSIBLE_BANNER_HEIGHT = 26;
+const COLLAPSIBLE_BANNER_FROM = { r: 0x42 / 255, g: 0x78 / 255, b: 0xec / 255 }; // --color-secondary
+const COLLAPSIBLE_BANNER_TO = { r: 0xdf / 255, g: 0x8c / 255, b: 0xbb / 255 }; // --color-accent
+const COLLAPSIBLE_BANNER_TEXT_COLOR = rgb(1, 1, 1); // --color-light
+
+function drawCollapsibleBanner({ page, text, font, x, y, width, height }) {
+  const steps = 60;
+  const stepWidth = width / steps;
+  for (let i = 0; i < steps; i++) {
+    const t = i / (steps - 1);
+    const color = rgb(
+      COLLAPSIBLE_BANNER_FROM.r + t * (COLLAPSIBLE_BANNER_TO.r - COLLAPSIBLE_BANNER_FROM.r),
+      COLLAPSIBLE_BANNER_FROM.g + t * (COLLAPSIBLE_BANNER_TO.g - COLLAPSIBLE_BANNER_FROM.g),
+      COLLAPSIBLE_BANNER_FROM.b + t * (COLLAPSIBLE_BANNER_TO.b - COLLAPSIBLE_BANNER_FROM.b)
+    );
+    page.drawRectangle({ x: x + i * stepWidth, y: y - height, width: stepWidth + 0.5, height, color });
+  }
+  const size = 12;
+  page.drawText(text, { x: x + 12, y: y - height / 2 - size / 2 + 3, size, font, color: COLLAPSIBLE_BANNER_TEXT_COLOR });
+}
 
 // Google's own font CDN — permanent, CORS-enabled (confirmed:
 // access-control-allow-origin: *), so these fetch identically whether this
@@ -358,8 +381,14 @@ export async function exportWorkbookPdf(config, data) {
     for (const section of worksheet.sections || []) {
       ensureSpace(18);
       if (section.title) {
-        page.drawText(section.title, { x: MARGIN, y, size: 12, font: boldFont });
-        y -= 20;
+        if (section.collapsible) {
+          ensureSpace(COLLAPSIBLE_BANNER_HEIGHT + 12);
+          drawCollapsibleBanner({ page, text: section.title, font: boldFont, x: MARGIN, y, width: CONTENT_WIDTH, height: COLLAPSIBLE_BANNER_HEIGHT });
+          y -= COLLAPSIBLE_BANNER_HEIGHT + 12;
+        } else {
+          page.drawText(section.title, { x: MARGIN, y, size: 12, font: boldFont });
+          y -= 20;
+        }
       }
 
       const columnCount = section.columns || 1;
@@ -436,7 +465,7 @@ export async function exportWorkbookPdf(config, data) {
         }
       }
 
-      y = lowestY - SECTION_GAP;
+      y = lowestY;
     }
   });
 
