@@ -1,9 +1,7 @@
 // The JS half of the Builder's "One-time setup" (the CSS is its own
-// separate loader, src/auto-mount-styles.js — kept as its own line/file so
-// the setup snippet stays two separate lines). This file stays trivial and
-// essentially never changes; its only job is to load the real, bundled
-// runtime fresh on every page load — no re-pasting, no browser cache to
-// fight.
+// separate <link> line). This file stays trivial and essentially never
+// changes; its only job is to load the real, bundled runtime fresh on
+// every page load — no re-pasting, no browser cache to fight.
 //
 // A plain jsDelivr "@main" URL is NOT enough for that: jsDelivr caches
 // which commit "@main" currently resolves to, separately from — and much
