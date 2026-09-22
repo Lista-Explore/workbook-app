@@ -93,15 +93,18 @@ test("each worksheet has its own independent sections", async ({ page }) => {
   await page.goto("/builder/index.html");
   await page.fill("#builder-workbook-title", "E2E Workbook 2");
 
+  // A new worksheet already has one section — no "+ Add section" click needed.
   await page.click("#builder-add-worksheet-btn");
+  await expect(page.locator(".builder-section-card")).toHaveCount(1);
   await page.click(".builder-add-section-btn");
-  await expect(page.locator(".builder-section-card")).toHaveCount(1);
+  await expect(page.locator(".builder-section-card")).toHaveCount(2);
 
   await page.click("#builder-add-worksheet-btn");
-  // Switching to the freshly added (empty) second worksheet shows no sections.
-  await expect(page.locator(".builder-section-card")).toHaveCount(0);
-
-  // Switching back to the first worksheet still shows its section.
-  await page.locator(".builder-worksheet-tab button").first().click();
+  // The freshly added second worksheet has its own single starter section —
+  // not the first worksheet's two.
   await expect(page.locator(".builder-section-card")).toHaveCount(1);
+
+  // Switching back to the first worksheet still shows its own two sections.
+  await page.locator(".builder-worksheet-tab button").first().click();
+  await expect(page.locator(".builder-section-card")).toHaveCount(2);
 });

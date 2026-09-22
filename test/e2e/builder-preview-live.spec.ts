@@ -21,8 +21,8 @@ test("the preview opens as a popup, not a permanent sidebar, and stays live", as
   await page.click("#builder-preview-close-btn");
   await expect(dialog).toBeHidden();
 
+  // A new worksheet already has one section — no "+ Add section" click needed.
   await page.click("#builder-add-worksheet-btn");
-  await page.click(".builder-add-section-btn");
   const sectionCard = page.locator(".builder-section-card").first();
   await sectionCard.locator(".builder-section-title-input").fill("Live Section");
 
