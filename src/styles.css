@@ -40,26 +40,40 @@
   cursor: default;
 }
 
-details.wb-section > summary.wb-section-title {
+details.wb-section > summary.wb-section-title:not(.content-summary) {
   cursor: pointer;
   list-style: none;
   /* !important: a host page's own stylesheet commonly targets bare
      `summary`/`details` tags (e.g. a "style native disclosure widgets"
      reset) with higher effective specificity than our scoped selector —
      that can center the text and/or push the marker onto its own line,
-     the same class of collision already hardened for `textarea` below. */
+     the same class of collision already hardened for `textarea` below.
+     Excluded for `.content-summary`, which deliberately opts into the
+     host's own disclosure-banner layout (flex + its own icon) instead. */
   display: block !important;
   text-align: left !important;
 }
 
-details.wb-section > summary.wb-section-title::before {
+details.wb-section > summary.wb-section-title:not(.content-summary)::before {
   content: "▾ ";
   display: inline-block;
   color: var(--wb-accent);
 }
 
-details.wb-section:not([open]) > summary.wb-section-title::before {
+details.wb-section:not([open]) > summary.wb-section-title:not(.content-summary)::before {
   content: "▸ ";
+}
+
+/* Collapsible section header, opted into the host LMS's own
+   ".content-summary" disclosure-banner look (see section-renderer.js) —
+   all of that visual styling (background, color, icon) comes from the
+   host page's own stylesheet, already loaded there. This is only the
+   glue to make that banner sit flush against our own .wb-section
+   padding/corners instead of being inset like ordinary content — scoped
+   to our own container so it touches nothing outside this element. */
+details.wb-section > summary.content-summary {
+  margin: -1.25em -1.4em 1.1em;
+  border-radius: 12px 12px 5px 5px;
 }
 
 /* Tabs */

@@ -24,8 +24,14 @@ export function renderSection(section, { values = {}, onFieldChange } = {}) {
   if (isCollapsible) {
     if (!section.startCollapsed) container.open = true;
     const summary = document.createElement("summary");
-    summary.className = "wb-section-title";
-    summary.textContent = section.title || "";
+    // "content-summary" is the LMS's own disclosure-banner class — reusing
+    // it here (rather than inventing our own look) means this picks up
+    // that design automatically wherever the host page's own stylesheet is
+    // already loaded, with no new visual CSS of our own.
+    summary.className = "wb-section-title content-summary";
+    const titleWrap = document.createElement("div");
+    titleWrap.textContent = section.title || "";
+    summary.appendChild(titleWrap);
     container.appendChild(summary);
   } else if (section.title) {
     const title = document.createElement("h2");
