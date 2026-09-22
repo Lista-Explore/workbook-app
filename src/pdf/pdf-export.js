@@ -1,5 +1,5 @@
 import { sanitizeContent } from "../fields/content.js";
-import { PDFDocument, rgb } from "../vendor/pdf-lib.esm.js";
+import { PDFDocument, degrees, rgb } from "../vendor/pdf-lib.esm.js";
 import fontkit from "../vendor/fontkit.esm.js";
 import { DISPLAY_ONLY_FIELD_TYPES } from "../fields/index.js";
 import { groupByColumn } from "../core/column-layout.js";
@@ -220,7 +220,7 @@ function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFon
     return wrapText(text, font, 8, width).length * LINE_HEIGHT + 8;
   }
   if (field.type === "content") {
-    return contentHeight(field, embeddedImages, font, boldFont || font, width, imageErrors);
+    return contentHeight(field, embeddedImages, { font, boldFont: boldFont || font }, width, imageErrors);
   }
   if (field.type === "heading" || field.type === "instructions" || field.type === "statement") {
     const labelFont = field.type === "heading" ? boldFont || font : font;
@@ -285,20 +285,73 @@ function contentImageKey(fieldId, index) {
   return `${fieldId}__content_image__${index}`;
 }
 
-function nodeTextWithBreaks(node) {
-  const clone = node.cloneNode(true);
-  clone.querySelectorAll("br").forEach((br) => br.replaceWith("\n"));
-  clone.querySelectorAll("li").forEach((li) => li.prepend("• "));
-  clone.querySelectorAll("td,th").forEach((cell) => cell.append("  "));
-  clone.querySelectorAll("tr,p,div,h1,h2,h3,h4,h5,h6,li,blockquote").forEach((el) => el.append("\n"));
-  return clone.textContent.replace(/[ \t]+\n/g, "\n").trim();
+const BLOCK_TAGS = new Set(["p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "blockquote", "pre", "td", "th"]);
+const SIZE_BY_TAG = { h1: 18, h2: 16, h3: 14, h4: 12, h5: 11, h6: 10 };
+
+function parseCssColor(value) {
+  const color = String(value || "").trim();
+  const rgbMatch = color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  if (rgbMatch) return rgb(Number(rgbMatch[1]) / 255, Number(rgbMatch[2]) / 255, Number(rgbMatch[3]) / 255);
+  const hexMatch = color.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (hexMatch) {
+    const hex = hexMatch[1].length === 3 ? hexMatch[1].split("").map((c) => c + c).join("") : hexMatch[1];
+    return rgb(parseInt(hex.slice(0, 2), 16) / 255, parseInt(hex.slice(2, 4), 16) / 255, parseInt(hex.slice(4, 6), 16) / 255);
+  }
+  return null;
 }
 
-function textStyleForNode(node) {
+function styleForElement(node, inherited = {}) {
   const tag = node.tagName ? node.tagName.toLowerCase() : "";
-  const strong = !!node.querySelector?.("strong,b") || ["strong", "b", "h1", "h2", "h3", "h4", "h5", "h6"].includes(tag);
-  const sizeByTag = { h1: 18, h2: 16, h3: 14, h4: 12, h5: 11, h6: 10 };
-  return { bold: strong, size: sizeByTag[tag] || 10 };
+  const fontWeight = inlineStyleValue(node, "font-weight");
+  const fontStyle = inlineStyleValue(node, "font-style");
+  const textDecoration = `${inlineStyleValue(node, "text-decoration")} ${inlineStyleValue(node, "text-decoration-line")}`;
+  const fontSize = parseFloat(inlineStyleValue(node, "font-size"));
+  const color = parseCssColor(inlineStyleValue(node, "color"));
+  return {
+    ...inherited,
+    bold: inherited.bold || ["strong", "b", "h1", "h2", "h3", "h4", "h5", "h6"].includes(tag) || fontWeight === "bold" || Number(fontWeight) >= 600,
+    italic: inherited.italic || tag === "em" || tag === "i" || fontStyle === "italic",
+    underline: inherited.underline || tag === "u" || textDecoration.includes("underline"),
+    strike: inherited.strike || tag === "s" || tag === "strike" || tag === "del" || textDecoration.includes("line-through"),
+    muted: inherited.muted || tag === "figcaption",
+    size: Number.isFinite(fontSize) ? Math.min(Math.max(fontSize * 0.75, 7), 24) : SIZE_BY_TAG[tag] || inherited.size || 10,
+    color: color || inherited.color || null,
+  };
+}
+
+function textAlignForNode(node) {
+  const align = inlineStyleValue(node, "text-align");
+  if (["center", "right", "left"].includes(align)) return align;
+  return "left";
+}
+
+function collectTextRuns(node, inherited = {}) {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const text = node.textContent.replace(/\s+/g, " ");
+    return text ? [{ text, ...inherited }] : [];
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) return [];
+  const tag = node.tagName.toLowerCase();
+  if (tag === "br") return [{ text: "\n", ...inherited }];
+  const style = styleForElement(node, inherited);
+  const runs = [];
+  if (tag === "li") runs.push({ text: "• ", ...style });
+  node.childNodes.forEach((child) => runs.push(...collectTextRuns(child, style)));
+  if (tag === "td" || tag === "th") runs.push({ text: "  ", ...style });
+  return runs;
+}
+
+function textEntryForNode(node) {
+  const tag = node.tagName ? node.tagName.toLowerCase() : "";
+  const runs = collectTextRuns(node, styleForElement(node, {})).filter((run) => run.text !== "");
+  const normalizedRuns = [];
+  for (const run of runs) {
+    const text = run.text.replace(/\s+/g, " ");
+    if (!text) continue;
+    normalizedRuns.push({ ...run, text });
+  }
+  const hasText = normalizedRuns.some((run) => run.text.trim());
+  return hasText ? { type: "text", runs: normalizedRuns, align: textAlignForNode(node), muted: tag === "figcaption" } : null;
 }
 
 function parsePercent(value) {
@@ -344,7 +397,7 @@ export function contentEntries(field) {
   function visit(node) {
     if (node.nodeType === Node.TEXT_NODE) {
       const text = node.textContent.trim();
-      if (text) entries.push({ type: "text", text, bold: false, size: 10 });
+      if (text) entries.push({ type: "text", runs: [{ text, bold: false, italic: false, underline: false, strike: false, size: 10, color: null }], align: "left" });
       return;
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return;
@@ -362,7 +415,10 @@ export function contentEntries(field) {
         entries.push({ type: "image", src, alt: img.getAttribute("alt") || "", key: contentImageKey(field.id, imageIndex++), ...imageLayoutForNode(img) });
       }
       const caption = node.querySelector("figcaption");
-      if (caption?.textContent.trim()) entries.push({ type: "text", text: caption.textContent.trim(), bold: false, size: 8, muted: true });
+      if (caption?.textContent.trim()) {
+        const captionEntry = textEntryForNode(caption);
+        if (captionEntry) entries.push({ ...captionEntry, muted: true });
+      }
       return;
     }
 
@@ -371,17 +427,86 @@ export function contentEntries(field) {
       return;
     }
 
-    const text = nodeTextWithBreaks(node);
-    if (text) entries.push({ type: "text", text, muted: tag === "figcaption", ...textStyleForNode(node) });
+    const textEntry = textEntryForNode(node);
+    if (textEntry) entries.push(textEntry);
   }
 
   const children = Array.from(host.childNodes);
-  if (children.length === 0 && host.textContent.trim()) entries.push({ type: "text", text: host.textContent.trim(), bold: false, size: 10 });
+  if (children.length === 0 && host.textContent.trim()) entries.push({ type: "text", runs: [{ text: host.textContent.trim(), bold: false, italic: false, underline: false, strike: false, size: 10, color: null }], align: "left" });
   children.forEach(visit);
   return entries;
 }
 
-function contentHeight(field, embeddedImages, font, boldFont, width, imageErrors) {
+function fontForRun(run, fonts) {
+  return run.bold ? fonts.boldFont : fonts.font;
+}
+
+function runColor(run) {
+  return run.muted ? rgb(0.4, 0.4, 0.4) : run.color || rgb(0, 0, 0);
+}
+
+function splitRunWords(run) {
+  const parts = String(run.text || "").split(/(\n|\s+)/).filter((part) => part !== "");
+  return parts.map((text) => ({ ...run, text }));
+}
+
+function layoutRichText(runs, fonts, maxWidth) {
+  const lines = [];
+  let current = [];
+  let width = 0;
+  function pushLine() {
+    lines.push({ runs: current, width });
+    current = [];
+    width = 0;
+  }
+  for (const run of runs.flatMap(splitRunWords)) {
+    if (run.text === "\n") {
+      pushLine();
+      continue;
+    }
+    const font = fontForRun(run, fonts);
+    const runWidth = font.widthOfTextAtSize(run.text, run.size || 10);
+    if (run.text.trim() && width > 0 && width + runWidth > maxWidth) pushLine();
+    current.push(run);
+    width += runWidth;
+  }
+  if (current.length || lines.length === 0) pushLine();
+  return lines;
+}
+
+function richTextHeight(entry, fonts, width) {
+  const lines = layoutRichText(entry.runs || [], fonts, width);
+  return lines.reduce((total, line) => total + Math.max(LINE_HEIGHT, ...line.runs.map((run) => (run.size || 10) + 3)), 0) + 4;
+}
+
+function drawRichText({ page, entry, fonts, x, y, width }) {
+  const lines = layoutRichText(entry.runs || [], fonts, width);
+  let cursorY = y;
+  for (const line of lines) {
+    let cursorX = alignedContentX(x, width, line.width, entry.align);
+    const lineHeight = Math.max(LINE_HEIGHT, ...line.runs.map((run) => (run.size || 10) + 3));
+    for (const run of line.runs) {
+      const font = fontForRun(run, fonts);
+      const size = run.size || 10;
+      const text = run.text;
+      const textWidth = font.widthOfTextAtSize(text, size);
+      if (text) {
+        page.drawText(text, { x: cursorX, y: cursorY, size, font, color: runColor(run), xSkew: run.italic ? degrees(-10) : degrees(0) });
+        if (run.underline) {
+          page.drawLine({ start: { x: cursorX, y: cursorY - 1.5 }, end: { x: cursorX + textWidth, y: cursorY - 1.5 }, thickness: 0.6, color: runColor(run) });
+        }
+        if (run.strike) {
+          page.drawLine({ start: { x: cursorX, y: cursorY + size * 0.32 }, end: { x: cursorX + textWidth, y: cursorY + size * 0.32 }, thickness: 0.6, color: runColor(run) });
+        }
+      }
+      cursorX += textWidth;
+    }
+    cursorY -= lineHeight;
+  }
+  return cursorY - 4;
+}
+
+function contentHeight(field, embeddedImages, fonts, width, imageErrors) {
   const entries = contentEntries(field);
   if (entries.length === 0) return LINE_HEIGHT;
   return entries.reduce((total, entry) => {
@@ -390,14 +515,13 @@ function contentHeight(field, embeddedImages, font, boldFont, width, imageErrors
       if (image) return total + scaledContentImageSize(image, width, entry.widthRatio).height + GAP;
       const reason = imageErrors?.get(entry.key);
       const text = `[image not embedded${reason ? `: ${reason}` : entry.alt ? `: ${entry.alt}` : ""}]`;
-      return total + wrapText(text, font, 8, width).length * LINE_HEIGHT + GAP;
+      return total + wrapText(text, fonts.font, 8, width).length * LINE_HEIGHT + GAP;
     }
-    const entryFont = entry.bold ? boldFont : font;
-    return total + wrapText(entry.text, entryFont, entry.size, width).length * (entry.size + 3) + 4;
+    return total + richTextHeight(entry, fonts, width);
   }, 4);
 }
 
-function drawContent({ page, field, embeddedImages, imageErrors, font, boldFont, x, y, width }) {
+function drawContent({ page, field, embeddedImages, imageErrors, fonts, x, y, width }) {
   let cursorY = y;
   for (const entry of contentEntries(field)) {
     if (entry.type === "image") {
@@ -409,14 +533,12 @@ function drawContent({ page, field, embeddedImages, imageErrors, font, boldFont,
       } else {
         const reason = imageErrors?.get(entry.key);
         const text = `[image not embedded${reason ? `: ${reason}` : entry.alt ? `: ${entry.alt}` : ""}]`;
-        cursorY = drawWrappedText({ page, text, font, size: 8, x, y: cursorY, width, color: rgb(0.55, 0.15, 0.15) }) - 4;
+        cursorY = drawWrappedText({ page, text, font: fonts.font, size: 8, x, y: cursorY, width, color: rgb(0.55, 0.15, 0.15) }) - 4;
       }
       continue;
     }
 
-    const entryFont = entry.bold ? boldFont : font;
-    const color = entry.muted ? rgb(0.4, 0.4, 0.4) : rgb(0, 0, 0);
-    cursorY = drawWrappedText({ page, text: entry.text, font: entryFont, size: entry.size, x, y: cursorY, width, color }) - 4;
+    cursorY = drawRichText({ page, entry, fonts, x, y: cursorY, width });
   }
 }
 
@@ -576,7 +698,7 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
 /** Draws one field — an actual embedded image when available, its display-only text, or its form widget. */
 function drawFieldOrPlaceholder({ form, font, boldFont, page, field, value, x, y, width, embeddedImages, imageErrors }) {
   if (field.type === "content") {
-    drawContent({ page, field, embeddedImages, imageErrors, font, boldFont, x, y, width });
+    drawContent({ page, field, embeddedImages, imageErrors, fonts: { font, boldFont }, x, y, width });
     return;
   }
   if (field.type === "image") {

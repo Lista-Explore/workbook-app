@@ -370,4 +370,22 @@ describe("exportWorkbookPdf — image embedding", () => {
       },
     ]);
   });
+
+  it("keeps inline Content text formatting as separate PDF text runs", () => {
+    const entries = contentEntries({
+      id: "content",
+      type: "content",
+      html: '<p>;k lkn<strong>;lkn\'m</strong><em><strong>;lknlkn</strong></em><u><em><strong>;ln;lkn</strong></em></u><del><u><em><strong>;lkn</strong></em></u></del><span style="color: rgb(255, 0, 221)"><del><u><em><strong>ln</strong></em></u></del></span></p>',
+    });
+
+    const [textEntry] = entries.filter((entry) => entry.type === "text");
+    expect(textEntry.runs).toMatchObject([
+      { text: ";k lkn", bold: false, underline: false, strike: false, color: null },
+      { text: ";lkn'm", bold: true, underline: false, strike: false },
+      { text: ";lknlkn", bold: true, italic: true, underline: false, strike: false },
+      { text: ";ln;lkn", bold: true, italic: true, underline: true, strike: false },
+      { text: ";lkn", bold: true, italic: true, underline: true, strike: true },
+      { text: "ln", bold: true, italic: true, underline: true, strike: true, color: { red: 1, green: 0, blue: 221 / 255, type: "RGB" } },
+    ]);
+  });
 });
