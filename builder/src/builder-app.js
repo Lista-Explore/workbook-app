@@ -1,3 +1,4 @@
+import { destroyContentEditors } from "./ui/content-editor.js";
 import { BuilderState } from "./builder-state.js";
 import { BuilderDraftStore } from "./builder-storage.js";
 import { renderWorkbookSettingsPanel } from "./ui/workbook-settings-panel.js";
@@ -71,6 +72,7 @@ export async function startBuilderApp(root, initialConfig) {
   // worksheet, section, or field; switching the active worksheet) where the
   // editing panels themselves must change shape.
   async function rerender() {
+    destroyContentEditors();
     renderWorkbookSettingsPanel(elements.settings, state, refreshDependents);
 
     if (!activeWorksheetId || !state.workbook.worksheets.some((w) => w.id === activeWorksheetId)) {

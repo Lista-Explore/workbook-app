@@ -56,7 +56,7 @@ export async function importWorkbookPdf(config, pdfBytes, existingData = {}) {
     if (groupMatch) {
       const [, fieldId, indexStr] = groupMatch;
       const entry = workbookFieldById.get(fieldId);
-      if (!entry || entry.field.type !== "checkbox-group") continue;
+      if (!entry || (entry.field.type !== "checkbox-group" && entry.field.type !== "checklist")) continue;
       const checked = readFieldValue(form, pdfFieldName);
       if (checked) {
         if (!checkboxGroupSelections.has(fieldId)) checkboxGroupSelections.set(fieldId, new Set());

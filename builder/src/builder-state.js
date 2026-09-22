@@ -1,3 +1,4 @@
+import { migrateContentField } from "../../src/fields/content.js";
 import { generateId, slugify } from "../../src/core/id-generator.js";
 
 function emptyWorkbook() {
@@ -33,7 +34,10 @@ export class BuilderState {
     for (const ws of this.workbook.worksheets) {
       for (const s of ws.sections || []) {
         this._usedSectionIds.add(s.id);
-        for (const f of s.fields || []) this._usedFieldIds.add(f.id);
+        for (const f of s.fields || []) {
+          migrateContentField(f);
+          this._usedFieldIds.add(f.id);
+        }
       }
     }
   }

@@ -55,6 +55,9 @@ function formatNode(node, depth) {
   }
   if (node.nodeType !== Node.ELEMENT_NODE) return "";
 
+  // Preserve whitespace and escaped text inside formatted content exactly.
+  if (node.classList.contains("wb-content")) return `${indent}${node.outerHTML}`;
+
   const tag = node.tagName.toLowerCase();
   const open = `${indent}<${tag}${formatAttributes(node)}>`;
   if (VOID_ELEMENTS.has(tag)) return open;

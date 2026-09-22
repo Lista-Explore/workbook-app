@@ -566,3 +566,7 @@ input.builder-section-title-input:focus {
   resize: vertical;
 }
 
+
+.builder-content-editor { flex: 1 1 100%; min-width: 0; max-width: 100%; }
+.builder-content-editor .sun-editor { border-radius: 6px; }
+.builder-content-editor .sun-editor button { box-shadow: none; }

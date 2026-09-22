@@ -1,3 +1,4 @@
+import { renderContentEditor } from "./content-editor.js";
 import {
   DESIGNER_FIELD_TYPES,
   OPTIONS_FIELD_TYPES,
@@ -143,7 +144,8 @@ function buildDefaultFieldConfig(type, column) {
   const isImage = IMAGE_FIELD_TYPES.has(type);
   return {
     type,
-    label: isImage ? "" : "New question",
+    label: isImage || type === "content" ? "" : "New question",
+    ...(type === "content" ? { html: "<p><br></p>" } : {}),
     column: column || 0,
     ...(needsOptions ? { options: ["Option 1", "Option 2"] } : {}),
     ...(isImage ? { src: "", alt: "", caption: "" } : {}),
@@ -241,7 +243,12 @@ function renderFieldRow({ field, index, fieldCount, state, worksheetId, sectionI
   typeLabel.textContent = typeInfo ? typeInfo.name : field.type;
   row.appendChild(typeLabel);
 
-  if (IMAGE_FIELD_TYPES.has(field.type)) {
+  if (field.type === "content") {
+    row.appendChild(renderContentEditor(field, (html) => {
+      state.updateField(worksheetId, sectionId, field.id, { html });
+      onLightChange();
+    }));
+  } else if (IMAGE_FIELD_TYPES.has(field.type)) {
     row.appendChild(renderImageFieldControls(field, onLightChange));
   } else {
     const labelInput = document.createElement("input");

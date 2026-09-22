@@ -1,3 +1,4 @@
+import { contentText } from "../fields/content.js";
 import { PDFDocument, rgb } from "../vendor/pdf-lib.esm.js";
 import fontkit from "../vendor/fontkit.esm.js";
 import { DISPLAY_ONLY_FIELD_TYPES } from "../fields/index.js";
@@ -166,6 +167,9 @@ function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFon
     const reason = imageErrors?.get(field.id);
     const text = `[image not embedded${reason ? `: ${reason}` : ""}]`;
     return wrapText(text, font, 8, width).length * LINE_HEIGHT + 8;
+  }
+  if (field.type === "content") {
+    return wrapText(contentText(field), font, 10, width).length * LINE_HEIGHT + 8;
   }
   if (field.type === "heading" || field.type === "instructions" || field.type === "statement") {
     const labelFont = field.type === "heading" ? boldFont || font : font;
@@ -381,6 +385,10 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
 
 /** Draws one field — an actual embedded image when available, its display-only text, or its form widget. */
 function drawFieldOrPlaceholder({ form, font, boldFont, page, field, value, x, y, width, embeddedImages, imageErrors }) {
+  if (field.type === "content") {
+    drawWrappedText({ page, text: contentText(field), font, size: 10, x, y, width, color: rgb(0, 0, 0) });
+    return;
+  }
   if (field.type === "image") {
     const image = embeddedImages?.get(field.id);
     if (image) {
