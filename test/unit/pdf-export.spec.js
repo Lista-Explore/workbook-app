@@ -338,7 +338,7 @@ describe("exportWorkbookPdf — image embedding", () => {
             {
               id: "content",
               type: "content",
-              html: '<h2>Directions</h2><p><strong>Read this.</strong></p><figure><img src="https://example.com/content.png" alt="Diagram"><figcaption>Diagram caption</figcaption></figure>',
+              html: '<h2>Directions</h2><p><strong>Read this.</strong></p><div class="se-component se-image-container"><figure><img src="https://example.com/content.png" alt="Diagram"><figcaption>Diagram caption</figcaption></figure></div>',
               column: 0,
             },
             { id: "answer", type: "short-text", label: "Answer", column: 0 },

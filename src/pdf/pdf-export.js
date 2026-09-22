@@ -319,6 +319,11 @@ function contentEntries(field) {
       return;
     }
 
+    if (node.querySelector("img,figure")) {
+      Array.from(node.childNodes).forEach(visit);
+      return;
+    }
+
     const text = nodeTextWithBreaks(node);
     if (text) entries.push({ type: "text", text, muted: tag === "figcaption", ...textStyleForNode(node) });
   }
