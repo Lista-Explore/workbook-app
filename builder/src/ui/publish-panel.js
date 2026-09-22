@@ -5,31 +5,34 @@ import { registerAllFields } from "../../../src/fields/index.js";
 
 registerAllFields();
 
-// Pinned to a specific commit, not the "@main" branch — jsDelivr caches
-// which commit "@main" currently resolves to separately from (and far
-// longer than) its per-file cache, so a plain "@main" URL can silently
-// keep serving an old commit's content for a long time after a push. A
-// commit-pinned URL has no resolution step to go stale: it's correct the
-// instant it's first requested, forever after.
-// RUNTIME_COMMIT must be updated (to the new commit's SHA) only when
-// auto-mount.js or auto-mount-styles.js themselves change — each of those
-// files' own job is to resolve the latest commit dynamically, at
-// page-load time, for the runtime bundle or stylesheet underneath it, so
-// neither one needs this same manual update (a style-only change never
-// needs this bumped).
+// Both lines are pinned to a specific commit, not the "@main" branch.
+// jsDelivr caches which commit "@main" currently resolves to separately
+// from (and far longer than) its per-file cache — a query-string
+// cache-buster on the file URL does nothing to bust that, so a plain
+// "@main" URL can silently keep serving an old commit's content for a long
+// time after a push. A commit-pinned URL has no resolution step to go
+// stale: it's correct the instant it's first requested, forever after.
+//
+// RUNTIME_COMMIT MUST be bumped (to the new commit's SHA) every single
+// time ANY file this reaches changes — styles.css, auto-mount.js, or
+// anything the runtime bundle is built from. There is no dynamic
+// resolution for the CSS line by design: it's a real <link>, not a
+// script, because the LMS this gets pasted into needs it to actually be
+// one. That trade-off is deliberate: forgetting this bump is the failure
+// mode, so treat bumping it as part of every commit that touches those
+// files, not an afterthought.
 const RUNTIME_COMMIT = "573801aac58563fde973e0fb5c26d86923f9ea89";
+const RUNTIME_CSS_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@${RUNTIME_COMMIT}/src/styles.css`;
 const RUNTIME_LOADER_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@${RUNTIME_COMMIT}/src/auto-mount.js`;
-const RUNTIME_STYLES_LOADER_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@${RUNTIME_COMMIT}/src/auto-mount-styles.js`;
 
 /**
- * The one-time setup every LMS page with a workbook on it needs — two
- * script tags, one for the stylesheet and one for the runtime bundle. Each
- * resolves and loads its own real Runtime file from jsDelivr's CDN itself,
- * at page-load time.
+ * The one-time setup every LMS page with a workbook on it needs — a real
+ * CSS <link> and a real <script>, pointing at the Runtime files on
+ * jsDelivr's CDN.
  */
 export function setupSnippet() {
   return [
-    `<script type="module" src="${RUNTIME_STYLES_LOADER_URL}"></script>`,
+    `<link rel="stylesheet" href="${RUNTIME_CSS_URL}" />`,
     `<script type="module" src="${RUNTIME_LOADER_URL}"></script>`,
   ].join("\n");
 }

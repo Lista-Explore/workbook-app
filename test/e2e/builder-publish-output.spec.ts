@@ -3,19 +3,15 @@ import { test, expect } from "@playwright/test";
 test("the Workbook HTML is real, well-formatted form markup — no JSON, no data payload", async ({ page }) => {
   await page.goto("/builder/index.html");
 
-  // The one-time setup is two separate script tags — one for the
-  // stylesheet, one for the runtime bundle. Each resolves the latest
-  // commit itself at page-load time, so neither one can ever go stale on
-  // an already-pasted page, and there's no separate CSS pin to forget to
-  // bump.
+  // The one-time setup is two lines: a real CSS <link>, and a script
+  // pointing at the self-refreshing loader (which injects the bundled
+  // runtime with a fresh cache-busting timestamp on every page load).
   const setup = await page.locator("#builder-setup-snippet").inputValue();
   // Commit-pinned, not "@main" — a branch URL can serve a stale commit on
   // jsDelivr for a long time after a push, even with a cache-busting query.
+  expect(setup).toMatch(/https:\/\/cdn\.jsdelivr\.net\/gh\/Lista-Explore\/workbook-app@[0-9a-f]{40}\/src\/styles\.css/);
   expect(setup).toMatch(
     /https:\/\/cdn\.jsdelivr\.net\/gh\/Lista-Explore\/workbook-app@[0-9a-f]{40}\/src\/auto-mount\.js/
-  );
-  expect(setup).toMatch(
-    /https:\/\/cdn\.jsdelivr\.net\/gh\/Lista-Explore\/workbook-app@[0-9a-f]{40}\/src\/auto-mount-styles\.js/
   );
 
   await page.fill("#builder-workbook-title", "Publish Test Workbook");
