@@ -17,7 +17,7 @@ registerAllFields();
 // page-load time, for the runtime bundle or stylesheet underneath it, so
 // neither one needs this same manual update (a style-only change never
 // needs this bumped).
-const RUNTIME_COMMIT = "b478781cec1579314fcd8727846d80332a0f5d99";
+const RUNTIME_COMMIT = "573801aac58563fde973e0fb5c26d86923f9ea89";
 const RUNTIME_LOADER_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@${RUNTIME_COMMIT}/src/auto-mount.js`;
 const RUNTIME_STYLES_LOADER_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@${RUNTIME_COMMIT}/src/auto-mount-styles.js`;
 
