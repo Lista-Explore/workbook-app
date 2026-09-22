@@ -43,6 +43,13 @@
 details.wb-section > summary.wb-section-title {
   cursor: pointer;
   list-style: none;
+  /* !important: a host page's own stylesheet commonly targets bare
+     `summary`/`details` tags (e.g. a "style native disclosure widgets"
+     reset) with higher effective specificity than our scoped selector —
+     that can center the text and/or push the marker onto its own line,
+     the same class of collision already hardened for `textarea` below. */
+  display: block !important;
+  text-align: left !important;
 }
 
 details.wb-section > summary.wb-section-title::before {
