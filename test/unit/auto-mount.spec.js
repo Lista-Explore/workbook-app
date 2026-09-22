@@ -12,7 +12,7 @@ describe("auto-mount.js — the one-time setup's loader", () => {
     global.fetch = originalFetch;
   });
 
-  it("resolves the latest commit from GitHub's API and loads the runtime from a commit-pinned jsDelivr URL", async () => {
+  it("resolves the latest commit from GitHub's API and loads both the runtime AND its stylesheet from commit-pinned jsDelivr URLs (regression: the CSS used to be a separately hand-pinned <link>, which went stale twice when that pin was forgotten)", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ sha: "abc123deadbeef" }),
@@ -31,10 +31,15 @@ describe("auto-mount.js — the one-time setup's loader", () => {
     expect(script.src).toBe(
       "https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@abc123deadbeef/src/dist/runtime.bundle.js"
     );
-    expect(document.head.querySelector('link[rel="stylesheet"]')).toBeNull();
+
+    const link = document.head.querySelector('link[rel="stylesheet"]');
+    expect(link).not.toBeNull();
+    expect(link.href).toBe(
+      "https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@abc123deadbeef/src/styles.css"
+    );
   });
 
-  it("falls back to a cache-busted @main URL if the GitHub API lookup fails, instead of breaking", async () => {
+  it("falls back to cache-busted @main URLs, for both files, if the GitHub API lookup fails, instead of breaking", async () => {
     global.fetch = vi.fn().mockRejectedValue(new Error("offline"));
 
     const url = `../../src/auto-mount.js?t=${Math.random()}`;
@@ -44,6 +49,12 @@ describe("auto-mount.js — the one-time setup's loader", () => {
     expect(script).not.toBeNull();
     expect(script.src).toMatch(
       /^https:\/\/cdn\.jsdelivr\.net\/gh\/Lista-Explore\/workbook-app@main\/src\/dist\/runtime\.bundle\.js\?t=\d+$/
+    );
+
+    const link = document.head.querySelector('link[rel="stylesheet"]');
+    expect(link).not.toBeNull();
+    expect(link.href).toMatch(
+      /^https:\/\/cdn\.jsdelivr\.net\/gh\/Lista-Explore\/workbook-app@main\/src\/styles\.css\?t=\d+$/
     );
   });
 });
