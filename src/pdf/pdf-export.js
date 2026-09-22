@@ -187,9 +187,9 @@ function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFon
   if (field.type === "checklist") {
     // Must match the space the "checklist" case in drawField() actually
     // consumes: the "X of N done" line (14), the card's own top/bottom
-    // padding (8 each), and each row's height (18).
+    // padding (8 each), and each row's height (22).
     const count = (field.options || []).length || 1;
-    return 14 + 8 * 2 + count * 18 + labelHeight;
+    return 14 + 8 * 2 + count * 22 + labelHeight;
   }
   return 40 + labelHeight;
 }
@@ -319,7 +319,12 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
       });
 
       const cardPad = 8;
-      const rowHeight = 18;
+      // ROW_HEIGHT must leave real clearance below the checkbox/text (which
+      // sit near the TOP of each row) before the next row's divider line —
+      // the previous values (row height 18, checkbox/text ~19-20 below the
+      // row's own top) put the divider line inside the checkbox and
+      // crossing straight through the text above it.
+      const rowHeight = 22;
       const cardTopY = widgetY - 14;
       const cardHeight = options.length * rowHeight + cardPad * 2;
       const cardBottomY = cardTopY - cardHeight;
@@ -337,12 +342,12 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
         const rowTopY = cardTopY - cardPad - index * rowHeight;
         const isChecked = selected.has(option);
         const cb = form.createCheckBox(`${field.id}__opt__${index}`);
-        cb.addToPage(page, { x: x + 8, y: rowTopY - 20, width: 12, height: 12 });
+        cb.addToPage(page, { x: x + 8, y: rowTopY - 16, width: 12, height: 12 });
         if (isChecked) cb.check();
 
         const textColor = isChecked ? mutedColor : rgb(0, 0, 0);
         const textX = x + 28;
-        const textY = rowTopY - 19;
+        const textY = rowTopY - 13;
         page.drawText(option, { x: textX, y: textY, size: 9, font, color: textColor });
         if (isChecked) {
           const textWidth = font.widthOfTextAtSize(option, 9);
