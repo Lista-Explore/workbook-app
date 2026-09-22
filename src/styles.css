@@ -64,18 +64,6 @@ details.wb-section:not([open]) > summary.wb-section-title:not(.content-summary):
   content: "▸ ";
 }
 
-/* Collapsible section header, opted into the host LMS's own
-   ".content-summary" disclosure-banner look (see section-renderer.js) —
-   all of that visual styling (background, color, icon) comes from the
-   host page's own stylesheet, already loaded there. This is only the
-   glue to make that banner sit flush against our own .wb-section
-   padding/corners instead of being inset like ordinary content — scoped
-   to our own container so it touches nothing outside this element. */
-details.wb-section > summary.content-summary {
-  margin: -1.25em -1.4em 1.1em;
-  border-radius: 12px 12px 5px 5px;
-}
-
 /* Tabs */
 
 .wb-tabs {
