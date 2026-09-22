@@ -12,20 +12,26 @@ registerAllFields();
 // commit-pinned URL has no resolution step to go stale: it's correct the
 // instant it's first requested, forever after.
 // RUNTIME_COMMIT must be updated (to the new commit's SHA) only when
-// auto-mount.js itself changes — that file's own job is to resolve the
-// latest commit dynamically, at page-load time, for both the runtime
-// bundle AND its stylesheet underneath it, so neither of those needs this
-// same manual update (a style-only change never needs this bumped).
+// auto-mount.js or auto-mount-styles.js themselves change — each of those
+// files' own job is to resolve the latest commit dynamically, at
+// page-load time, for the runtime bundle or stylesheet underneath it, so
+// neither one needs this same manual update (a style-only change never
+// needs this bumped).
 const RUNTIME_COMMIT = "b478781cec1579314fcd8727846d80332a0f5d99";
 const RUNTIME_LOADER_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@${RUNTIME_COMMIT}/src/auto-mount.js`;
+const RUNTIME_STYLES_LOADER_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@${RUNTIME_COMMIT}/src/auto-mount-styles.js`;
 
 /**
- * The one-time setup every LMS page with a workbook on it needs — a
- * single script tag; it resolves and loads the real Runtime files (JS and
- * CSS both) from jsDelivr's CDN itself, at page-load time.
+ * The one-time setup every LMS page with a workbook on it needs — two
+ * script tags, one for the stylesheet and one for the runtime bundle. Each
+ * resolves and loads its own real Runtime file from jsDelivr's CDN itself,
+ * at page-load time.
  */
 export function setupSnippet() {
-  return `<script type="module" src="${RUNTIME_LOADER_URL}"></script>`;
+  return [
+    `<script type="module" src="${RUNTIME_STYLES_LOADER_URL}"></script>`,
+    `<script type="module" src="${RUNTIME_LOADER_URL}"></script>`,
+  ].join("\n");
 }
 
 const VOID_ELEMENTS = new Set(["img", "input", "br", "hr"]);
