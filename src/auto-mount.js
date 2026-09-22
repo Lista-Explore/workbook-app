@@ -20,7 +20,7 @@
 // only occasionally, so a rare API failure doesn't strand a page on
 // something ancient.
 const REPO = "Lista-Explore/workbook-app";
-const FALLBACK_COMMIT = "70e58fdd45bf0bcf04d452bdbd292cdad1c2c4e0";
+const FALLBACK_COMMIT = "9edcd13a9cb9b71bb40ad0f0a74917d13f871a1c";
 
 async function resolveRuntimeUrl() {
   try {
