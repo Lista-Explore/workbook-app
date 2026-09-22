@@ -180,9 +180,16 @@ function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFon
   const labelHeight = (labelLines - 1) * LINE_HEIGHT;
 
   if (field.type === "long-text") return 90 + labelHeight;
-  if (field.type === "radio" || field.type === "checkbox-group" || field.type === "checklist") {
+  if (field.type === "radio" || field.type === "checkbox-group") {
     const count = (field.options || []).length || 1;
     return 20 + count * 16 + labelHeight;
+  }
+  if (field.type === "checklist") {
+    // Must match the space the "checklist" case in drawField() actually
+    // consumes: the "X of N done" line (14), the card's own top/bottom
+    // padding (8 each), and each row's height (18).
+    const count = (field.options || []).length || 1;
+    return 14 + 8 * 2 + count * 18 + labelHeight;
   }
   return 40 + labelHeight;
 }
@@ -277,8 +284,7 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
       return;
     }
 
-    case "checkbox-group":
-    case "checklist": {
+    case "checkbox-group": {
       const selected = new Set(Array.isArray(value) ? value : []);
       let optionY = widgetY;
       (field.options || []).forEach((option, index) => {
@@ -287,6 +293,74 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
         if (selected.has(option)) cb.check();
         page.drawText(option, { x: x + 18, y: optionY - 11, size: 9, font });
         optionY -= 16;
+      });
+      return;
+    }
+
+    case "checklist": {
+      // The grayscale "card" look this has on screen — a bordered list,
+      // a static "X of N done" count, and struck-through checked items —
+      // reproduced here so the PDF matches, not just a bare checkbox list
+      // like checkbox-group. Interactivity (re-checking, the reset
+      // button) can't exist in a PDF, so this only reflects whatever was
+      // already checked at export time.
+      const options = field.options || [];
+      const selected = new Set(Array.isArray(value) ? value : []);
+      const doneCount = options.filter((option) => selected.has(option)).length;
+      const mutedColor = rgb(0.42, 0.45, 0.5);
+      const gridColor = rgb(0.82, 0.84, 0.87);
+
+      page.drawText(`${doneCount} of ${options.length} done`, {
+        x,
+        y: widgetY,
+        size: 8,
+        font,
+        color: mutedColor,
+      });
+
+      const cardPad = 8;
+      const rowHeight = 18;
+      const cardTopY = widgetY - 14;
+      const cardHeight = options.length * rowHeight + cardPad * 2;
+      const cardBottomY = cardTopY - cardHeight;
+
+      page.drawRectangle({
+        x,
+        y: cardBottomY,
+        width,
+        height: cardHeight,
+        borderColor: gridColor,
+        borderWidth: 1,
+      });
+
+      options.forEach((option, index) => {
+        const rowTopY = cardTopY - cardPad - index * rowHeight;
+        const isChecked = selected.has(option);
+        const cb = form.createCheckBox(`${field.id}__opt__${index}`);
+        cb.addToPage(page, { x: x + 8, y: rowTopY - 20, width: 12, height: 12 });
+        if (isChecked) cb.check();
+
+        const textColor = isChecked ? mutedColor : rgb(0, 0, 0);
+        const textX = x + 28;
+        const textY = rowTopY - 19;
+        page.drawText(option, { x: textX, y: textY, size: 9, font, color: textColor });
+        if (isChecked) {
+          const textWidth = font.widthOfTextAtSize(option, 9);
+          page.drawLine({
+            start: { x: textX, y: textY + 3.2 },
+            end: { x: textX + textWidth, y: textY + 3.2 },
+            thickness: 0.75,
+            color: textColor,
+          });
+        }
+        if (index > 0) {
+          page.drawLine({
+            start: { x, y: rowTopY },
+            end: { x: x + width, y: rowTopY },
+            thickness: 0.5,
+            color: gridColor,
+          });
+        }
       });
       return;
     }
