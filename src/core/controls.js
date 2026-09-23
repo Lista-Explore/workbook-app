@@ -8,6 +8,7 @@
 export function renderWorkbookControls(workbook) {
   const bar = document.createElement("div");
   bar.id = "wb-controls";
+  bar.style.justifyContent = "center";
 
   const downloadBtn = document.createElement("button");
   downloadBtn.type = "button";
