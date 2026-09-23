@@ -1,5 +1,5 @@
 import { sanitizeContent } from "../fields/content.js";
-import { PDFDocument, degrees, rgb } from "../vendor/pdf-lib.esm.js";
+import { PDFDocument, rgb } from "../vendor/pdf-lib.esm.js";
 import fontkit from "../vendor/fontkit.esm.js";
 import { DISPLAY_ONLY_FIELD_TYPES } from "../fields/index.js";
 import { groupByColumn } from "../core/column-layout.js";
@@ -506,7 +506,7 @@ function drawRichText({ page, entry, fonts, x, y, width }) {
       const text = run.text;
       const textWidth = font.widthOfTextAtSize(text, size);
       if (text) {
-        page.drawText(text, { x: cursorX, y: cursorY, size, font, color: runColor(run), xSkew: run.italic ? degrees(-10) : degrees(0) });
+        page.drawText(text, { x: cursorX, y: cursorY, size, font, color: runColor(run) });
         if (run.underline) {
           page.drawLine({ start: { x: cursorX, y: cursorY - 1.5 }, end: { x: cursorX + textWidth, y: cursorY - 1.5 }, thickness: 0.6, color: runColor(run) });
         }
@@ -812,15 +812,6 @@ export async function exportWorkbookPdf(config, data) {
     const wsValues = worksheetsData[worksheet.id] || {};
 
     for (const section of worksheet.sections || []) {
-      ensureSpace(18);
-      // Every section is the collapsible banner element now, not a
-      // per-section choice — same as the Runtime/Builder.
-      if (section.title) {
-        ensureSpace(COLLAPSIBLE_BANNER_HEIGHT + 12);
-        drawCollapsibleBanner({ page, text: section.title, font: boldFont, x: MARGIN, y, width: CONTENT_WIDTH, height: COLLAPSIBLE_BANNER_HEIGHT });
-        y -= COLLAPSIBLE_BANNER_HEIGHT + 12;
-      }
-
       const columnCount = section.columns || 1;
       const fields = section.fields || [];
       const colWidth = (CONTENT_WIDTH - GAP * (columnCount - 1)) / columnCount;
@@ -841,7 +832,16 @@ export async function exportWorkbookPdf(config, data) {
         col.reduce((sum, { item }) => sum + fieldRowHeight(item, embeddedImages, font, innerWidth, imageErrors, boldFont) + GAP, 0)
       );
       const maxColumnHeight = Math.max(0, ...columnHeights) + padTop + padBottom;
-      ensureSpace(maxColumnHeight);
+      const bannerHeight = section.title ? COLLAPSIBLE_BANNER_HEIGHT + 12 : 0;
+      ensureSpace(bannerHeight + maxColumnHeight);
+
+      // Every titled section is the collapsible banner element now, not a
+      // per-section choice. Reserve the banner together with the section
+      // body so a banner is not stranded at the bottom of the previous page.
+      if (section.title) {
+        drawCollapsibleBanner({ page, text: section.title, font: boldFont, x: MARGIN, y, width: CONTENT_WIDTH, height: COLLAPSIBLE_BANNER_HEIGHT });
+        y -= bannerHeight;
+      }
 
       const sectionStartY = y;
       let lowestY = sectionStartY;
