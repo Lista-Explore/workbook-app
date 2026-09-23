@@ -14,4 +14,7 @@ test("renders the workbook and lets a student fill fields", async ({ page }) => 
   await expect(page.locator("#customer_type")).toHaveValue("Enterprise");
   await expect(page.locator('input[name="priority"][value="High"]')).toBeChecked();
   await expect(page.locator('input[name="needs"][value="Support"]')).toBeChecked();
+
+  const justifyContent = await page.locator('#wb-controls').evaluate((node) => getComputedStyle(node).justifyContent);
+  expect(justifyContent).toBe('center');
 });

@@ -364,6 +364,7 @@
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 1em;
   flex-wrap: wrap;
   padding-top: 1.25em;
