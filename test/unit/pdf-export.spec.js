@@ -405,6 +405,23 @@ describe("exportWorkbookPdf — image embedding", () => {
       { type: "text", runs: [{ text: "End" }] },
     ]);
   });
+
+  it("keeps Content tables as PDF table entries instead of flattening cells into loose paragraphs", () => {
+    const entries = contentEntries({
+      id: "content",
+      type: "content",
+      html: "<table><tbody><tr><td><strong>Task</strong></td><td>A clear action word.</td></tr><tr><td>Context</td><td>The background.</td></tr></tbody></table>",
+    });
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      type: "table",
+      rows: [
+        [{ header: false, runs: [{ text: "Task", bold: true }] }, { runs: [{ text: "A clear action word." }] }],
+        [{ runs: [{ text: "Context" }] }, { runs: [{ text: "The background." }] }],
+      ],
+    });
+  });
 });
 
 describe("exportWorkbookPdf — checklist and rich text", () => {

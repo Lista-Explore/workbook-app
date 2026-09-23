@@ -454,6 +454,21 @@ export function contentEntries(field) {
       return;
     }
 
+    if (tag === "table") {
+      const rows = Array.from(node.querySelectorAll("tr"))
+        .map((row) =>
+          Array.from(row.children)
+            .filter((cell) => ["td", "th"].includes(cell.tagName?.toLowerCase()))
+            .map((cell) => ({
+              runs: collectTextRuns(cell, styleForElement(cell, {})).filter((run) => run.text !== "" && run.text !== "  "),
+              header: cell.tagName.toLowerCase() === "th",
+            }))
+        )
+        .filter((row) => row.length > 0);
+      if (rows.length > 0) entries.push({ type: "table", rows });
+      return;
+    }
+
     if (node.querySelector("img,figure")) {
       Array.from(node.childNodes).forEach(visit);
       return;
@@ -520,6 +535,24 @@ function ruleHeight() {
   return GAP + 2;
 }
 
+function tableLayout(entry, fonts, width) {
+  const rows = entry.rows || [];
+  const columnCount = Math.max(1, ...rows.map((row) => row.length));
+  const cellPadding = 5;
+  const cellWidth = width / columnCount;
+  const rowLayouts = rows.map((row) => {
+    const cells = Array.from({ length: columnCount }, (_, index) => {
+      const cell = row[index] || { runs: [] };
+      const runs = (cell.runs || []).map((run) => ({ ...run, bold: cell.header || run.bold }));
+      const lines = layoutRichText(runs, fonts, cellWidth - cellPadding * 2);
+      const height = Math.max(18, lines.reduce((total, line) => total + Math.max(LINE_HEIGHT, ...line.runs.map((run) => (run.size || 10) + 3)), 0) + cellPadding * 2);
+      return { ...cell, runs, lines, height };
+    });
+    return { cells, height: Math.max(...cells.map((cell) => cell.height)) };
+  });
+  return { columnCount, cellPadding, cellWidth, rowLayouts, height: rowLayouts.reduce((total, row) => total + row.height, 0) + GAP };
+}
+
 function drawRichText({ page, entry, fonts, x, y, width }) {
   const lines = layoutRichText(entry.runs || [], fonts, width);
   let cursorY = y;
@@ -559,8 +592,45 @@ function contentHeight(field, embeddedImages, fonts, width, imageErrors) {
       return total + wrapText(text, fonts.font, 8, width).length * LINE_HEIGHT + GAP;
     }
     if (entry.type === "rule") return total + ruleHeight();
+    if (entry.type === "table") return total + tableLayout(entry, fonts, width).height;
     return total + richTextHeight(entry, fonts, width);
   }, 4);
+}
+
+function drawTable({ page, entry, fonts, x, y, width }) {
+  const layout = tableLayout(entry, fonts, width);
+  const gridColor = rgb(0.72, 0.72, 0.72);
+  const headerColor = rgb(0.94, 0.95, 0.96);
+  let cursorY = y;
+
+  layout.rowLayouts.forEach((row) => {
+    const rowBottom = cursorY - row.height;
+    row.cells.forEach((cell, cellIndex) => {
+      const cellX = x + cellIndex * layout.cellWidth;
+      if (cell.header) {
+        page.drawRectangle({ x: cellX, y: rowBottom, width: layout.cellWidth, height: row.height, color: headerColor });
+      }
+      page.drawRectangle({ x: cellX, y: rowBottom, width: layout.cellWidth, height: row.height, borderColor: gridColor, borderWidth: 0.6 });
+      let textY = cursorY - layout.cellPadding - 10;
+      cell.lines.forEach((line) => {
+        let textX = cellX + layout.cellPadding;
+        const lineHeight = Math.max(LINE_HEIGHT, ...line.runs.map((run) => (run.size || 10) + 3));
+        line.runs.forEach((run) => {
+          const font = fontForRun(run, fonts);
+          const size = run.size || 10;
+          const text = run.text;
+          if (text) {
+            page.drawText(text, { x: textX, y: textY, size, font, color: runColor(run) });
+            textX += font.widthOfTextAtSize(text, size);
+          }
+        });
+        textY -= lineHeight;
+      });
+    });
+    cursorY = rowBottom;
+  });
+
+  return cursorY - GAP;
 }
 
 function drawContent({ page, field, embeddedImages, imageErrors, fonts, x, y, width }) {
@@ -584,6 +654,11 @@ function drawContent({ page, field, embeddedImages, imageErrors, fonts, x, y, wi
       const lineY = cursorY - GAP / 2;
       page.drawLine({ start: { x, y: lineY }, end: { x: x + width, y: lineY }, thickness: 0.8, color: rgb(0.72, 0.72, 0.72) });
       cursorY -= ruleHeight();
+      continue;
+    }
+
+    if (entry.type === "table") {
+      cursorY = drawTable({ page, entry, fonts, x, y: cursorY, width });
       continue;
     }
 
