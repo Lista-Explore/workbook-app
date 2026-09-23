@@ -15,6 +15,8 @@ test("the preview opens as a popup, not a permanent sidebar, and stays live", as
 
   await page.click("#builder-preview-btn");
   await expect(dialog).toBeVisible();
+  const dialogBox = await dialog.boundingBox();
+  expect(dialogBox!.width).toBeGreaterThan(900);
   await expect(page.locator("#builder-preview-panel .wb-title")).toHaveText("My Live Title");
 
   // It's a real modal — the builder behind it isn't interactive until closed.

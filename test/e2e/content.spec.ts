@@ -61,7 +61,7 @@ test('published Content image alignment and sizing render in workbook HTML', asy
   expect(imageBox!.width).toBeCloseTo(300, 1);
 });
 
-test('Content editor stays usable in multi-column builder sections without changing published columns', async ({ page }) => {
+test('Content editor can expand from multi-column builder sections without changing published columns', async ({ page }) => {
   await page.goto('/builder/index.html');
   await page.locator('#builder-workbook-title').fill('Content columns');
   await page.getByRole('button', { name: 'Add worksheet', exact: true }).click();
@@ -74,8 +74,7 @@ test('Content editor stays usable in multi-column builder sections without chang
   const fieldList = section.locator('.builder-field-list');
   await expect(fieldList).toHaveAttribute('data-columns', '2');
   await expect(section.locator('.builder-content-editor')).toBeVisible();
-  await expect.poll(() => fieldList.evaluate((node) => getComputedStyle(node).display)).toBe('flex');
-  await expect.poll(() => section.locator('.builder-content-editor').boundingBox()).toMatchObject({ width: expect.any(Number) });
+  await expect.poll(() => fieldList.evaluate((node) => getComputedStyle(node).display)).toBe('grid');
 
   const body = section.locator('[contenteditable="true"][aria-label="Content text"]');
   await expect(body).toBeVisible();
@@ -83,6 +82,19 @@ test('Content editor stays usable in multi-column builder sections without chang
   await body.press('ControlOrMeta+a');
   await section.locator('.sun-editor button[data-command="bold"]').click();
   await expect(body.locator('strong,b')).toHaveText('Editable in columns');
+
+  await section.getByRole('button', { name: 'Expand editor' }).click();
+  const dialog = page.locator('.builder-content-expand-dialog');
+  await expect(dialog).toBeVisible();
+  await expect.poll(() => dialog.boundingBox()).toMatchObject({ width: expect.any(Number) });
+  const dialogBox = await dialog.boundingBox();
+  const inlineBox = await section.locator('.builder-content-editor').boundingBox();
+  expect(dialogBox!.width).toBeGreaterThan(inlineBox!.width * 1.8);
+  const expandedBody = dialog.locator('[contenteditable="true"][aria-label="Content text"]');
+  await expandedBody.fill('Expanded editor content');
+  await dialog.getByRole('button', { name: 'Close' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(body).toContainText('Expanded editor content');
 
   await expect(page.locator('#builder-workbook-html')).toHaveValue(/data-columns="2"/);
 });

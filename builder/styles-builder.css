@@ -93,8 +93,8 @@ body {
 /* Live preview dialog — a real popup instead of a permanent sidebar column
    squeezing the editing area. */
 .builder-preview-dialog {
-  width: min(700px, 92vw);
-  max-height: 85vh;
+  width: min(1180px, 96vw);
+  max-height: 90vh;
   padding: 1.5em;
   border: 1px solid var(--bd-border);
   border-radius: var(--bd-radius);
@@ -119,7 +119,7 @@ body {
 }
 
 .builder-preview-dialog #builder-preview-panel {
-  max-height: calc(85vh - 5em);
+  max-height: calc(90vh - 5em);
   overflow-y: auto;
 }
 
@@ -389,24 +389,6 @@ input.builder-section-title-input:focus {
   overflow: visible;
 }
 
-.builder-field-list-with-content[data-columns="2"],
-.builder-field-list-with-content[data-columns="3"] {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6em;
-}
-
-.builder-field-list-with-content[data-columns="2"] .builder-field-column,
-.builder-field-list-with-content[data-columns="3"] .builder-field-column {
-  border-left: 0;
-  border-bottom: 1px dotted var(--bd-border-strong);
-}
-
-.builder-field-list-with-content[data-columns="2"] .builder-field-column:last-child,
-.builder-field-list-with-content[data-columns="3"] .builder-field-column:last-child {
-  border-bottom: 0;
-}
-
 .builder-field-column {
   display: flex;
   flex-direction: column;
@@ -590,5 +572,21 @@ input.builder-section-title-input:focus {
 
 
 .builder-content-editor { flex: 1 1 100%; min-width: 0; max-width: 100%; }
+.builder-content-editor-actions { display: flex; justify-content: flex-end; margin-bottom: 0.4em; }
+.builder-content-expand-btn { background: var(--bd-surface); border-color: var(--bd-border-strong); color: var(--bd-text); }
 .builder-content-editor .sun-editor { border-radius: 6px; }
 .builder-content-editor .sun-editor button { box-shadow: none; }
+
+.builder-content-expand-dialog {
+  width: min(1180px, 96vw);
+  max-height: 92vh;
+  padding: 1.25em;
+  border: 1px solid var(--bd-border);
+  border-radius: var(--bd-radius);
+  box-shadow: 0 16px 48px rgba(16, 24, 40, 0.22);
+}
+
+.builder-content-expand-dialog::backdrop { background: rgba(20, 22, 26, 0.45); }
+.builder-content-expand-header { display: flex; align-items: center; justify-content: space-between; gap: 1em; margin-bottom: 1em; }
+.builder-content-expand-header h2 { margin: 0; font-size: 1.1em; }
+.builder-content-expand-body { max-height: calc(92vh - 6em); overflow: visible; }
