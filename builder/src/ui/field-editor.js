@@ -341,6 +341,9 @@ export function renderFieldEditor(container, state, worksheetId, sectionId, sect
   fieldList.dataset.columns = String(columnCount);
   if ((section.fields || []).some((field) => field.type === "content")) {
     fieldList.classList.add("builder-field-list-with-content");
+    fieldList.style.display = "flex";
+    fieldList.style.flexDirection = "column";
+    fieldList.style.gap = "0.6em";
   }
 
   const columns = groupByColumn(section.fields, columnCount, (field) => field.column);
