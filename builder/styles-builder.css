@@ -577,6 +577,13 @@ input.builder-section-title-input:focus {
 .builder-content-expand-btn { background: var(--bd-surface); border-color: var(--bd-border-strong); color: var(--bd-text); }
 .builder-content-editor .sun-editor { border-radius: 6px; }
 .builder-content-editor .sun-editor button { box-shadow: none; }
+.builder-content-editor .se-toolbar-sticky,
+.builder-content-expand-dialog .se-toolbar-sticky {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  width: 100% !important;
+}
 
 .builder-content-expand-dialog {
   width: min(1180px, 96vw);

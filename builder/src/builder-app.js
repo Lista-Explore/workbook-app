@@ -16,7 +16,10 @@ export async function startBuilderApp(root, initialConfig) {
   const state = new BuilderState(initialConfig);
   // A fixed slot for "whatever is currently open in the Builder" — using
   // the workbook's own id would go stale the moment the designer changes it.
-  const draftStore = new BuilderDraftStore("current");
+  // Tests may pass ?draftKey=... so parallel browser runs do not overwrite
+  // each other's saved builder drafts while reloading the page.
+  const draftKey = new URL(root.location?.href || document.location.href).searchParams.get("draftKey") || "current";
+  const draftStore = new BuilderDraftStore(draftKey);
   let activeWorksheetId = state.workbook.worksheets[0]?.id || null;
   let saveTimer = null;
 

@@ -1,9 +1,24 @@
 import { test, expect } from '@playwright/test';
 
+async function readBuilderDraft(page, draftKey: string) {
+  return page.evaluate((key) =>
+    new Promise((resolve, reject) => {
+      const request = indexedDB.open('lms-workbook-store', 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction('workbooks', 'readonly');
+        const get = tx.objectStore('workbooks').get(`draft:${key}:draft`);
+        get.onerror = () => reject(get.error);
+        get.onsuccess = () => resolve(get.result?.value || null);
+      };
+    }), draftKey);
+}
+
 test('Content formatting survives preview, structural edits, and draft reload', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('/builder/index.html');
+  await page.goto('/builder/index.html?draftKey=content-formatting');
   await page.locator('#builder-workbook-title').fill('Content workbook');
   await page.getByRole('button', { name: 'Add worksheet', exact: true }).click();
   const picker = page.locator('.builder-add-field-type-select').last();
@@ -30,11 +45,17 @@ test('Content formatting survives preview, structural edits, and draft reload', 
   await page.getByRole('button', { name: 'Preview', exact: true }).click();
   await expect(page.locator('#builder-preview-panel .wb-content strong, #builder-preview-panel .wb-content b')).toHaveText('Formatted content');
   await page.getByRole('button', { name: 'Close', exact: true }).click();
-  await expect(page.locator('#builder-status-text')).toHaveText('Draft saved.');
+  await expect
+    .poll(() => readBuilderDraft(page, 'content-formatting'))
+    .toMatchObject({ title: 'Content workbook', worksheets: expect.any(Array) });
+  await expect
+    .poll(() => readBuilderDraft(page, 'content-formatting').then((draft: any) => JSON.stringify(draft)))
+    .toContain('Formatted content');
   await page.reload();
-  await expect(body.locator('strong,b')).toHaveText('Formatted content');
+  const reloadedBody = page.locator('[contenteditable="true"][aria-label="Content text"]');
+  await expect(reloadedBody.locator('strong,b')).toHaveText('Formatted content');
   await page.getByRole('button', { name: '+ Add section', exact: true }).click();
-  await expect(body.locator('strong,b')).toHaveText('Formatted content');
+  await expect(reloadedBody.locator('strong,b')).toHaveText('Formatted content');
   expect(errors).toEqual([]);
 });
 
@@ -62,7 +83,7 @@ test('published Content image alignment and sizing render in workbook HTML', asy
 });
 
 test('Content editor can expand from multi-column builder sections without changing published columns', async ({ page }) => {
-  await page.goto('/builder/index.html');
+  await page.goto('/builder/index.html?draftKey=content-columns');
   await page.locator('#builder-workbook-title').fill('Content columns');
   await page.getByRole('button', { name: 'Add worksheet', exact: true }).click();
   await page.getByRole('button', { name: '+ Add section', exact: true }).click();
@@ -95,6 +116,16 @@ test('Content editor can expand from multi-column builder sections without chang
   await dialog.getByRole('button', { name: 'Close' }).click();
   await expect(dialog).toBeHidden();
   await expect(body).toContainText('Expanded editor content');
+
+  await expect
+    .poll(() =>
+      section.locator('.builder-content-editor .se-toolbar').first().evaluate((node) => {
+        const style = getComputedStyle(node);
+        const rect = node.getBoundingClientRect();
+        return { position: style.position, top: Math.round(rect.top), width: Math.round(rect.width) };
+      })
+    )
+    .toMatchObject({ position: 'relative', width: expect.any(Number) });
 
   await expect(page.locator('#builder-workbook-html')).toHaveValue(/data-columns="2"/);
 });
