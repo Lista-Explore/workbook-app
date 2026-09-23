@@ -205,10 +205,40 @@ function createTypeSelect() {
   return select;
 }
 
+function selectedFieldIds(container, fallbackId) {
+  const checked = Array.from(container.ownerDocument.querySelectorAll(".builder-field-select:checked"))
+    .map((input) => input.closest(".builder-field-row")?.dataset.fieldId)
+    .filter(Boolean);
+  return checked.includes(fallbackId) ? checked : [fallbackId];
+}
+
 function renderFieldRow({ field, index, fieldCount, state, worksheetId, sectionId, onChange, onLightChange }) {
   const row = document.createElement("div");
   row.className = "builder-field-row";
   row.dataset.fieldId = field.id;
+
+  const selectBox = document.createElement("input");
+  selectBox.type = "checkbox";
+  selectBox.className = "builder-field-select";
+  selectBox.setAttribute("aria-label", `Select ${field.label || field.type || "question"} for moving`);
+  row.appendChild(selectBox);
+
+  const dragHandle = document.createElement("button");
+  dragHandle.type = "button";
+  dragHandle.className = "builder-drag-handle";
+  dragHandle.textContent = "☰";
+  dragHandle.title = "Drag to move this question. Tick multiple questions first to move them together.";
+  dragHandle.setAttribute("aria-label", "Drag question");
+  dragHandle.draggable = true;
+  dragHandle.addEventListener("dragstart", (event) => {
+    const ids = selectedFieldIds(row, field.id);
+    event.dataTransfer?.setData("application/x-builder-field-ids", JSON.stringify(ids));
+    event.dataTransfer?.setData("text/plain", ids.join(","));
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+    row.classList.add("builder-field-row-dragging");
+  });
+  dragHandle.addEventListener("dragend", () => row.classList.remove("builder-field-row-dragging"));
+  row.appendChild(dragHandle);
 
   const reorderControls = document.createElement("div");
   reorderControls.className = "builder-reorder-controls";
@@ -371,6 +401,29 @@ export function renderFieldEditor(container, state, worksheetId, sectionId, sect
     }
 
     const insertIndex = column.length ? column[column.length - 1].index + 1 : fieldCount;
+    const dropZone = document.createElement("div");
+    dropZone.className = "builder-field-drop-zone";
+    dropZone.textContent = section.unsectioned || sectionId == null
+      ? "Drop questions here to move them outside sections"
+      : `Drop questions here for column ${columnIndex + 1}`;
+    dropZone.addEventListener("dragover", (event) => {
+      if (!event.dataTransfer?.types.includes("application/x-builder-field-ids")) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      dropZone.classList.add("builder-field-drop-zone-active");
+    });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("builder-field-drop-zone-active"));
+    dropZone.addEventListener("drop", (event) => {
+      event.preventDefault();
+      dropZone.classList.remove("builder-field-drop-zone-active");
+      const raw = event.dataTransfer?.getData("application/x-builder-field-ids");
+      if (!raw) return;
+      const ids = JSON.parse(raw);
+      state.moveFields(worksheetId, ids, sectionId, columnIndex);
+      onChange();
+    });
+    columnEl.appendChild(dropZone);
+
     const addRow = document.createElement("div");
     addRow.className = "builder-add-field-row";
 

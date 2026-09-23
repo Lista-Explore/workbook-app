@@ -138,10 +138,7 @@ export class BuilderState {
     // non-disclosing group, created only when the first question is added.
     let section;
     if (sectionId == null) {
-      const worksheet = this._findWorksheet(worksheetId);
-      const id = generateId("questions", worksheet.sections.length, this._usedSectionIds);
-      section = { id, title: "", columns: 1, unsectioned: true, fields: [] };
-      worksheet.sections.push(section);
+      section = this._addStandaloneSection(worksheetId);
     } else {
       section = this._findSection(worksheetId, sectionId);
     }
@@ -153,6 +150,54 @@ export class BuilderState {
       section.fields.splice(Math.max(insertIndex, 0), 0, field);
     }
     return field;
+  }
+
+
+  _addStandaloneSection(worksheetId) {
+    const worksheet = this._findWorksheet(worksheetId);
+    const id = generateId("questions", worksheet.sections.length, this._usedSectionIds);
+    const section = { id, title: "", columns: 1, unsectioned: true, fields: [] };
+    worksheet.sections.push(section);
+    return section;
+  }
+
+  /**
+   * Moves existing fields between standalone questions and sections without
+   * changing their ids or field-specific settings. Destination column is
+   * applied at the target so moving into a multi-column section is explicit.
+   */
+  moveFields(worksheetId, fieldIds, destinationSectionId, destinationColumn = 0, insertIndex) {
+    const worksheet = this._findWorksheet(worksheetId);
+    const ids = [...new Set(fieldIds)].filter(Boolean);
+    if (!ids.length) return;
+
+    const moved = [];
+    for (const section of worksheet.sections) {
+      const remaining = [];
+      for (const field of section.fields || []) {
+        if (ids.includes(field.id)) moved.push(field);
+        else remaining.push(field);
+      }
+      section.fields = remaining;
+    }
+    if (!moved.length) return;
+
+    let destination = destinationSectionId == null
+      ? this._addStandaloneSection(worksheetId)
+      : this._findSection(worksheetId, destinationSectionId);
+
+    const maxColumn = Math.max((destination.columns || 1) - 1, 0);
+    const safeColumn = Math.min(Math.max(Number(destinationColumn) || 0, 0), maxColumn);
+    moved.forEach((field) => {
+      field.column = safeColumn;
+    });
+
+    const targetIndex = insertIndex == null
+      ? destination.fields.length
+      : Math.min(Math.max(insertIndex, 0), destination.fields.length);
+    destination.fields.splice(targetIndex, 0, ...moved);
+
+    worksheet.sections = worksheet.sections.filter((section) => !section.unsectioned || section.fields.length > 0);
   }
 
   removeField(worksheetId, sectionId, fieldId) {

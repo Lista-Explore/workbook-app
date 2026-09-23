@@ -602,3 +602,35 @@ input.builder-section-title-input:focus {
 .builder-checklist-option-row { flex-wrap: wrap; }
 .builder-checklist-option-row > .builder-text-editor { flex: 1 1 100%; min-width: 0; }
 .builder-checklist-option-row .wb-rich-text-toolbar { flex-wrap: wrap; }
+
+.builder-field-select {
+  align-self: center;
+  margin: 0 0.15em 0 0;
+}
+
+.builder-drag-handle {
+  align-self: center;
+  padding: 0.35em 0.55em;
+  cursor: grab;
+  line-height: 1;
+}
+
+.builder-drag-handle:active { cursor: grabbing; }
+.builder-field-row-dragging { opacity: 0.55; }
+
+.builder-field-drop-zone {
+  border: 1px dashed var(--bd-border-strong);
+  border-radius: 8px;
+  color: var(--bd-muted);
+  font-size: 0.84em;
+  padding: 0.65em;
+  text-align: center;
+  background: #fafbfc;
+  margin: 0.4em 0;
+}
+
+.builder-field-drop-zone-active {
+  border-color: var(--bd-accent);
+  color: var(--bd-accent);
+  background: var(--bd-accent-soft);
+}

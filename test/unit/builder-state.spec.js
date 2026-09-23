@@ -212,3 +212,44 @@ describe("BuilderState.toConfig", () => {
     expect(state.workbook.worksheets[0].title).toBe("WS1");
   });
 });
+
+describe("BuilderState — moving fields", () => {
+  it("moves a standalone question into a specific section column without changing its config", () => {
+    const ws = state.addWorksheet("WS1");
+    const outside = state.addField(ws.id, null, { type: "checklist", label: "Steps", options: ["One"], optionsHtml: ["<h2>One</h2>"] });
+    const section = state.addSection(ws.id, { title: "Inside", columns: 2 });
+
+    state.moveFields(ws.id, [outside.id], section.id, 1);
+
+    expect(ws.sections.some((s) => s.unsectioned)).toBe(false);
+    expect(section.fields).toHaveLength(1);
+    expect(section.fields[0]).toMatchObject({ id: outside.id, label: "Steps", column: 1, optionsHtml: ["<h2>One</h2>"] });
+  });
+
+  it("moves section questions back outside sections as standalone questions", () => {
+    const ws = state.addWorksheet("WS1");
+    const section = state.addSection(ws.id, { title: "Inside", columns: 2 });
+    const field = state.addField(ws.id, section.id, { type: "short-text", label: "Name", column: 1 });
+
+    state.moveFields(ws.id, [field.id], null, 0);
+
+    const standalone = ws.sections.find((s) => s.unsectioned);
+    expect(section.fields).toHaveLength(0);
+    expect(standalone.fields.map((f) => f.id)).toEqual([field.id]);
+    expect(standalone.fields[0].column).toBe(0);
+  });
+
+  it("moves multiple selected questions together in their existing workbook order", () => {
+    const ws = state.addWorksheet("WS1");
+    const source = state.addSection(ws.id, { title: "Source" });
+    const target = state.addSection(ws.id, { title: "Target" });
+    const a = state.addField(ws.id, source.id, { type: "short-text", label: "A" });
+    state.addField(ws.id, source.id, { type: "short-text", label: "B" });
+    const c = state.addField(ws.id, source.id, { type: "short-text", label: "C" });
+
+    state.moveFields(ws.id, [c.id, a.id], target.id, 0);
+
+    expect(source.fields.map((f) => f.label)).toEqual(["B"]);
+    expect(target.fields.map((f) => f.label)).toEqual(["A", "C"]);
+  });
+});
