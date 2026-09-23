@@ -36,6 +36,8 @@ export async function startBuilderApp(root, initialConfig) {
 
   if (elements.previewBtn && elements.previewDialog) {
     elements.previewBtn.addEventListener("click", () => {
+      elements.previewDialog.style.width = "min(1180px, 96vw)";
+      elements.previewDialog.style.maxWidth = "none";
       elements.previewDialog.showModal();
     });
   }

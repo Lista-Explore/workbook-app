@@ -94,6 +94,7 @@ body {
    squeezing the editing area. */
 .builder-preview-dialog {
   width: min(1180px, 96vw);
+  max-width: none;
   max-height: 90vh;
   padding: 1.5em;
   border: 1px solid var(--bd-border);
