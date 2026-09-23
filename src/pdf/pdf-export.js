@@ -811,16 +811,116 @@ export async function exportWorkbookPdf(config, data) {
 
     const wsValues = worksheetsData[worksheet.id] || {};
 
+    function drawPagedChecklist(field, value, x, width) {
+      const labelBottomY = drawFieldLabel({ page, field, boldFont, x, y, width });
+      let cursorY = labelBottomY - 4;
+      const options = field.options || [];
+      const selected = new Set(Array.isArray(value) ? value : []);
+      const doneCount = options.filter((option) => selected.has(option)).length;
+      const muted = rgb(0.42, 0.45, 0.5);
+      const gridColor = rgb(0.82, 0.84, 0.87);
+      const progressText = `${doneCount} of ${options.length} done`;
+      page.drawText(progressText, { x, y: cursorY, size: 9, font: boldFont || font, color: muted });
+      const barY = cursorY - 8;
+      const barWidth = Math.min(width, 160);
+      page.drawRectangle({ x, y: barY, width: barWidth, height: 4, color: rgb(0.9, 0.91, 0.93) });
+      if (options.length > 0 && doneCount > 0) {
+        page.drawRectangle({ x, y: barY, width: barWidth * (doneCount / options.length), height: 4, color: rgb(0.25, 0.27, 0.31) });
+      }
+
+      const cardPad = 8;
+      const rowHeights = checklistRowHeights(field, font, boldFont, width);
+      let index = 0;
+      cursorY -= 20;
+
+      while (index < options.length) {
+        ensureSpace(cardPad * 2 + Math.min(rowHeights[index] || 22, 40));
+        const cardTopY = cursorY;
+        let available = cardTopY - MARGIN - cardPad * 2;
+        let end = index;
+        let segmentHeight = 0;
+        while (end < options.length && segmentHeight + rowHeights[end] <= available) {
+          segmentHeight += rowHeights[end];
+          end += 1;
+        }
+        if (end === index) {
+          segmentHeight = rowHeights[index];
+          end = index + 1;
+        }
+        const cardHeight = segmentHeight + cardPad * 2;
+        const cardBottomY = cardTopY - cardHeight;
+        page.drawRectangle({ x, y: cardBottomY, width, height: cardHeight, borderColor: gridColor, borderWidth: 1 });
+        let rowTopY = cardTopY - cardPad;
+        for (let rowIndex = index; rowIndex < end; rowIndex++) {
+          const option = options[rowIndex];
+          const cb = form.createCheckBox(`${field.id}__opt__${rowIndex}`);
+          cb.addToPage(page, { x: x + 8, y: rowTopY - 16, width: 12, height: 12 });
+          if (selected.has(option)) cb.check();
+          drawContent({ page, field: checklistItemContent(field, rowIndex), embeddedImages: new Map(), imageErrors: new Map(), fonts: { font, boldFont }, x: x + 28, y: rowTopY - 13, width: width - 36 });
+          if (rowIndex > index) {
+            page.drawLine({ start: { x, y: rowTopY }, end: { x: x + width, y: rowTopY }, thickness: 0.5, color: gridColor });
+          }
+          rowTopY -= rowHeights[rowIndex];
+        }
+        index = end;
+        cursorY = cardBottomY;
+        if (index < options.length) {
+          page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+          cursorY = PAGE_HEIGHT - MARGIN;
+        }
+      }
+      y = cursorY - GAP;
+    }
+
     for (const section of worksheet.sections || []) {
       const columnCount = section.columns || 1;
       const fields = section.fields || [];
+      const bannerHeight = section.title ? COLLAPSIBLE_BANNER_HEIGHT + 12 : 0;
+
+      if (columnCount === 1) {
+        const firstField = fields[0];
+        const firstFieldHeight = firstField ? Math.min(fieldRowHeight(firstField, embeddedImages, font, CONTENT_WIDTH, imageErrors, boldFont), 80) : 0;
+        ensureSpace(bannerHeight + firstFieldHeight);
+        if (section.title) {
+          drawCollapsibleBanner({ page, text: section.title, font: boldFont, x: MARGIN, y, width: CONTENT_WIDTH, height: COLLAPSIBLE_BANNER_HEIGHT });
+          y -= bannerHeight;
+        }
+
+        for (const field of fields) {
+          if (field.type === "checklist") {
+            const labelLines = wrapText(field.label, boldFont || font, 10, CONTENT_WIDTH).length;
+            const labelHeight = (labelLines - 1) * LINE_HEIGHT;
+            ensureSpace(labelHeight + 40 + Math.min((checklistRowHeights(field, font, boldFont, CONTENT_WIDTH)[0] || 22), 40));
+            drawPagedChecklist(field, wsValues[field.id], MARGIN, CONTENT_WIDTH);
+            continue;
+          }
+          const height = fieldRowHeight(field, embeddedImages, font, CONTENT_WIDTH, imageErrors, boldFont);
+          ensureSpace(height);
+          drawFieldOrPlaceholder({
+            form,
+            font,
+            boldFont,
+            page,
+            field,
+            value: wsValues[field.id],
+            x: MARGIN,
+            y,
+            width: CONTENT_WIDTH,
+            embeddedImages,
+            imageErrors,
+          });
+          y -= height + GAP;
+        }
+        y -= SECTION_GAP - GAP;
+        continue;
+      }
+
       const colWidth = (CONTENT_WIDTH - GAP * (columnCount - 1)) / columnCount;
       // A bordered multi-column table needs its own inset so fields don't
-      // sit flush against the divider lines/outer border — a single-column
-      // section has no border to breathe away from, so it stays unpadded.
-      const padX = columnCount > 1 ? COLUMN_PADDING : 0;
-      const padTop = columnCount > 1 ? COLUMN_PADDING : 0;
-      const padBottom = columnCount > 1 ? COLUMN_PADDING : 0;
+      // sit flush against the divider lines/outer border.
+      const padX = COLUMN_PADDING;
+      const padTop = COLUMN_PADDING;
+      const padBottom = COLUMN_PADDING;
       const innerWidth = colWidth - padX * 2;
 
       // Same stable, explicit-`field.column`-based grouping the Builder and
@@ -832,12 +932,8 @@ export async function exportWorkbookPdf(config, data) {
         col.reduce((sum, { item }) => sum + fieldRowHeight(item, embeddedImages, font, innerWidth, imageErrors, boldFont) + GAP, 0)
       );
       const maxColumnHeight = Math.max(0, ...columnHeights) + padTop + padBottom;
-      const bannerHeight = section.title ? COLLAPSIBLE_BANNER_HEIGHT + 12 : 0;
       ensureSpace(bannerHeight + maxColumnHeight);
 
-      // Every titled section is the collapsible banner element now, not a
-      // per-section choice. Reserve the banner together with the section
-      // body so a banner is not stranded at the bottom of the previous page.
       if (section.title) {
         drawCollapsibleBanner({ page, text: section.title, font: boldFont, x: MARGIN, y, width: CONTENT_WIDTH, height: COLLAPSIBLE_BANNER_HEIGHT });
         y -= bannerHeight;
@@ -873,26 +969,24 @@ export async function exportWorkbookPdf(config, data) {
       // A multi-column section gets a real border + column dividers, so it
       // actually reads as a table instead of just floating groups of
       // fields separated by whitespace.
-      if (columnCount > 1) {
-        const gridColor = rgb(0.82, 0.84, 0.87);
-        page.drawRectangle({
-          x: MARGIN,
-          y: lowestY,
-          width: CONTENT_WIDTH,
-          height: sectionStartY - lowestY,
-          borderColor: gridColor,
-          borderWidth: 1,
+      const gridColor = rgb(0.82, 0.84, 0.87);
+      page.drawRectangle({
+        x: MARGIN,
+        y: lowestY,
+        width: CONTENT_WIDTH,
+        height: sectionStartY - lowestY,
+        borderColor: gridColor,
+        borderWidth: 1,
+      });
+      for (let colIndex = 1; colIndex < columnCount; colIndex++) {
+        const dividerX = MARGIN + colIndex * (colWidth + GAP) - GAP / 2;
+        page.drawLine({
+          start: { x: dividerX, y: sectionStartY },
+          end: { x: dividerX, y: lowestY },
+          color: gridColor,
+          thickness: 1,
+          dashArray: [1, 2],
         });
-        for (let colIndex = 1; colIndex < columnCount; colIndex++) {
-          const dividerX = MARGIN + colIndex * (colWidth + GAP) - GAP / 2;
-          page.drawLine({
-            start: { x: dividerX, y: sectionStartY },
-            end: { x: dividerX, y: lowestY },
-            color: gridColor,
-            thickness: 1,
-            dashArray: [1, 2],
-          });
-        }
       }
 
       y = lowestY - SECTION_GAP;
