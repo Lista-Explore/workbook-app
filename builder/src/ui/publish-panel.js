@@ -21,7 +21,7 @@ registerAllFields();
 // one. That trade-off is deliberate: forgetting this bump is the failure
 // mode, so treat bumping it as part of every commit that touches those
 // files, not an afterthought.
-const RUNTIME_COMMIT = "4a9181f54044ea05815beffb92f429d63d31c877";
+const RUNTIME_COMMIT = "ae0db2a5fb6df794df9155c2aff5c82b930b5b2c";
 const RUNTIME_CSS_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@${RUNTIME_COMMIT}/src/styles.css`;
 const RUNTIME_LOADER_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@${RUNTIME_COMMIT}/src/auto-mount.js`;
 
