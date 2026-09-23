@@ -389,3 +389,40 @@ describe("exportWorkbookPdf — image embedding", () => {
     ]);
   });
 });
+
+describe("exportWorkbookPdf — checklist and rich text", () => {
+  it("draws checklist progress text and exports rich text answers as visible formatted PDF content", async () => {
+    const config = {
+      id: "wb-rich-checklist",
+      worksheets: [
+        {
+          id: "ws1",
+          sections: [
+            {
+              id: "s1",
+              fields: [
+                { id: "tasks", type: "checklist", label: "Tasks", options: ["One", "Two", "Three"], column: 0 },
+                { id: "reflection", type: "rich-text", label: "Reflection", column: 0 },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const bytes = await exportWorkbookPdf(config, {
+      worksheets: {
+        ws1: {
+          tasks: ["One", "Three"],
+          reflection: "<h2>Summary</h2><p><strong>Bold answer</strong></p>",
+        },
+      },
+    });
+    const pdfDoc = await PDFDocument.load(bytes);
+    const form = pdfDoc.getForm();
+    expect(form.getCheckBox("tasks__opt__0").isChecked()).toBe(true);
+    expect(form.getCheckBox("tasks__opt__1").isChecked()).toBe(false);
+    expect(form.getCheckBox("tasks__opt__2").isChecked()).toBe(true);
+    expect(() => form.getTextField("reflection")).toThrow();
+  });
+});

@@ -222,6 +222,11 @@ function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFon
   if (field.type === "content") {
     return contentHeight(field, embeddedImages, { font, boldFont: boldFont || font }, width, imageErrors);
   }
+  if (field.type === "rich-text") {
+    const labelLines = wrapText(field.label, boldFont || font, 10, width).length;
+    const labelHeight = (labelLines - 1) * LINE_HEIGHT;
+    return 110 + labelHeight;
+  }
   if (field.type === "heading" || field.type === "instructions" || field.type === "statement") {
     const labelFont = field.type === "heading" ? boldFont || font : font;
     const lines = wrapText(field.label, labelFont, field.type === "heading" ? 12 : 10, width);
@@ -241,10 +246,10 @@ function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFon
   }
   if (field.type === "checklist") {
     // Must match the space the "checklist" case in drawField() actually
-    // consumes: the "X of N done" line (14), the card's own top/bottom
+    // consumes: the progress line/bar (20), the card's own top/bottom
     // padding (8 each), and each row's height (22).
     const count = (field.options || []).length || 1;
-    return 14 + 8 * 2 + count * 22 + labelHeight;
+    return 20 + 8 * 2 + count * 22 + labelHeight;
   }
   return 40 + labelHeight;
 }
@@ -572,6 +577,16 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
       return;
     }
 
+    case "rich-text": {
+      if (value) {
+        drawContent({ page, field: { ...field, type: "content", html: String(value) }, embeddedImages: new Map(), imageErrors: new Map(), fonts: { font, boldFont }, x, y: widgetY - 4, width });
+      } else {
+        page.drawRectangle({ x, y: widgetY - 84, width, height: 88, borderColor: rgb(0.82, 0.84, 0.87), borderWidth: 1 });
+        page.drawText("Rich text response", { x: x + 8, y: widgetY - 16, size: 9, font, color: rgb(0.42, 0.45, 0.5) });
+      }
+      return;
+    }
+
     case "checkbox": {
       const cb = form.createCheckBox(field.id);
       cb.addToPage(page, { x, y: widgetY - 14, width: 14, height: 14 });
@@ -626,13 +641,20 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
       const mutedColor = rgb(0.42, 0.45, 0.5);
       const gridColor = rgb(0.82, 0.84, 0.87);
 
-      page.drawText(`${doneCount} of ${options.length} done`, {
+      const progressText = `${doneCount} of ${options.length} done`;
+      page.drawText(progressText, {
         x,
         y: widgetY,
-        size: 8,
-        font,
+        size: 9,
+        font: boldFont || font,
         color: mutedColor,
       });
+      const barY = widgetY - 8;
+      const barWidth = Math.min(width, 160);
+      page.drawRectangle({ x, y: barY, width: barWidth, height: 4, color: rgb(0.9, 0.91, 0.93) });
+      if (options.length > 0 && doneCount > 0) {
+        page.drawRectangle({ x, y: barY, width: barWidth * (doneCount / options.length), height: 4, color: rgb(0.25, 0.27, 0.31) });
+      }
 
       const cardPad = 8;
       // ROW_HEIGHT must leave real clearance below the checkbox/text (which
@@ -641,7 +663,7 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
       // row's own top) put the divider line inside the checkbox and
       // crossing straight through the text above it.
       const rowHeight = 22;
-      const cardTopY = widgetY - 14;
+      const cardTopY = widgetY - 20;
       const cardHeight = options.length * rowHeight + cardPad * 2;
       const cardBottomY = cardTopY - cardHeight;
 

@@ -42,6 +42,9 @@ function fieldConfigFromWrapper(wrapper, column) {
   if (type === "content") {
     return { ...base, html: sanitizeContent(wrapper.querySelector(".wb-content")?.innerHTML || "") };
   }
+  if (type === "rich-text") {
+    return base;
+  }
   if (type === "radio" || type === "checkbox-group") {
     const options = Array.from(wrapper.querySelectorAll("input")).map((input) => {
       const optLabel = wrapper.querySelector(`label[for="${input.id}"]`);

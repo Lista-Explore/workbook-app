@@ -1,6 +1,7 @@
 import { FieldRegistry } from "./registry.js";
 import { shortText } from "./short-text.js";
 import { longText } from "./long-text.js";
+import { richText } from "./rich-text.js";
 import { number } from "./number.js";
 import { email } from "./email.js";
 import { url } from "./url.js";
@@ -30,6 +31,7 @@ export function registerAllFields() {
   FieldRegistry.register("content", content);
   FieldRegistry.register("short-text", shortText);
   FieldRegistry.register("long-text", longText);
+  FieldRegistry.register("rich-text", richText);
   FieldRegistry.register("number", number);
   FieldRegistry.register("email", email);
   FieldRegistry.register("url", url);
@@ -58,6 +60,7 @@ export function registerAllFields() {
 export const DESIGNER_FIELD_TYPES = [
   { type: "short-text", name: "Short text" },
   { type: "long-text", name: "Long text" },
+  { type: "rich-text", name: "Rich text" },
   { type: "number", name: "Number" },
   { type: "email", name: "Email" },
   { type: "url", name: "URL" },

@@ -404,3 +404,66 @@
 .wb-content .__se__p-neon { padding: 6px 4px; border: 2px solid #fff; border-radius: 6px; color: #fff; background: #000; font-style: italic; font-weight: 200; text-transform: uppercase; }
 .wb-content .__se__t-shadow { text-shadow: -0.2px 0 #999, 0 0.2px #999, 0.2px 0 #999, 0 -0.2px #999; }
 .wb-content .__se__t-code { padding: .2em .4em; border-radius: 6px; color: #666; background: rgba(27, 31, 35, .05); font-family: monospace; }
+
+/* Rich text answer field */
+
+.wb-rich-text-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35em;
+  padding: 0.45em;
+  border: 1px solid var(--wb-border-strong);
+  border-bottom: none;
+  border-radius: 7px 7px 0 0;
+  background: var(--wb-bg);
+}
+
+.wb-rich-text-toolbar select,
+.wb-rich-text-toolbar button {
+  font: inherit;
+  font-size: 0.85em;
+  min-height: 2em;
+  padding: 0.25em 0.5em;
+  border: 1px solid var(--wb-border-strong);
+  border-radius: 5px;
+  background: var(--wb-surface);
+  color: var(--wb-text);
+}
+
+.wb-rich-text-btn {
+  cursor: pointer;
+}
+
+.wb-rich-text-input {
+  min-height: 9em;
+  padding: 0.7em;
+  border: 1px solid var(--wb-border-strong);
+  border-radius: 0 0 7px 7px;
+  background: var(--wb-surface);
+  color: var(--wb-text);
+  overflow-wrap: anywhere;
+}
+
+.wb-rich-text-input:focus {
+  outline: 2px solid var(--wb-accent);
+  outline-offset: 1px;
+  border-color: var(--wb-accent);
+}
+
+.wb-rich-text-input:empty::before {
+  content: attr(data-placeholder);
+  color: var(--wb-muted);
+}
+
+.wb-rich-text-input h1,
+.wb-rich-text-input h2,
+.wb-rich-text-input h3,
+.wb-rich-text-input h4,
+.wb-rich-text-input h5,
+.wb-rich-text-input h6,
+.wb-rich-text-input p,
+.wb-rich-text-input ul,
+.wb-rich-text-input ol {
+  margin-top: 0;
+  margin-bottom: 0.55em;
+}
