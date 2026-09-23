@@ -301,6 +301,7 @@ function contentImageKey(fieldId, index) {
 }
 
 const BLOCK_TAGS = new Set(["p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "blockquote", "pre", "td", "th"]);
+const STRUCTURAL_TAGS = new Set(["ul", "ol", "table", "thead", "tbody", "tfoot", "tr"]);
 const SIZE_BY_TAG = { h1: 18, h2: 16, h3: 14, h4: 12, h5: 11, h6: 10 };
 
 function parseCssColor(value) {
@@ -350,15 +351,17 @@ function collectTextRuns(node, inherited = {}) {
   if (tag === "br") return [{ text: "\n", ...inherited }];
   const style = styleForElement(node, inherited);
   const runs = [];
-  if (tag === "li") runs.push({ text: "• ", ...style });
   node.childNodes.forEach((child) => runs.push(...collectTextRuns(child, style)));
   if (tag === "td" || tag === "th") runs.push({ text: "  ", ...style });
   return runs;
 }
 
-function textEntryForNode(node) {
+function textEntryForNode(node, { prefix = "" } = {}) {
   const tag = node.tagName ? node.tagName.toLowerCase() : "";
   const runs = collectTextRuns(node, styleForElement(node, {})).filter((run) => run.text !== "");
+  if (prefix && runs.length) {
+    runs.unshift({ text: prefix, ...styleForElement(node, {}) });
+  }
   const normalizedRuns = [];
   for (const run of runs) {
     const text = run.text.replace(/\s+/g, " ");
@@ -437,7 +440,26 @@ export function contentEntries(field) {
       return;
     }
 
+    if (tag === "hr") {
+      entries.push({ type: "rule" });
+      return;
+    }
+
+    if (tag === "ul" || tag === "ol") {
+      Array.from(node.children).forEach((child, index) => {
+        if (child.tagName?.toLowerCase() !== "li") return;
+        const textEntry = textEntryForNode(child, { prefix: tag === "ol" ? `${index + 1}. ` : "• " });
+        if (textEntry) entries.push(textEntry);
+      });
+      return;
+    }
+
     if (node.querySelector("img,figure")) {
+      Array.from(node.childNodes).forEach(visit);
+      return;
+    }
+
+    if (STRUCTURAL_TAGS.has(tag)) {
       Array.from(node.childNodes).forEach(visit);
       return;
     }
@@ -494,6 +516,10 @@ function richTextHeight(entry, fonts, width) {
   return lines.reduce((total, line) => total + Math.max(LINE_HEIGHT, ...line.runs.map((run) => (run.size || 10) + 3)), 0) + 4;
 }
 
+function ruleHeight() {
+  return GAP + 2;
+}
+
 function drawRichText({ page, entry, fonts, x, y, width }) {
   const lines = layoutRichText(entry.runs || [], fonts, width);
   let cursorY = y;
@@ -532,6 +558,7 @@ function contentHeight(field, embeddedImages, fonts, width, imageErrors) {
       const text = `[image not embedded${reason ? `: ${reason}` : entry.alt ? `: ${entry.alt}` : ""}]`;
       return total + wrapText(text, fonts.font, 8, width).length * LINE_HEIGHT + GAP;
     }
+    if (entry.type === "rule") return total + ruleHeight();
     return total + richTextHeight(entry, fonts, width);
   }, 4);
 }
@@ -550,6 +577,13 @@ function drawContent({ page, field, embeddedImages, imageErrors, fonts, x, y, wi
         const text = `[image not embedded${reason ? `: ${reason}` : entry.alt ? `: ${entry.alt}` : ""}]`;
         cursorY = drawWrappedText({ page, text, font: fonts.font, size: 8, x, y: cursorY, width, color: rgb(0.55, 0.15, 0.15) }) - 4;
       }
+      continue;
+    }
+
+    if (entry.type === "rule") {
+      const lineY = cursorY - GAP / 2;
+      page.drawLine({ start: { x, y: lineY }, end: { x: x + width, y: lineY }, thickness: 0.8, color: rgb(0.72, 0.72, 0.72) });
+      cursorY -= ruleHeight();
       continue;
     }
 

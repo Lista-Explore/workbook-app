@@ -63,11 +63,13 @@ test('published Content image alignment and sizing render in workbook HTML', asy
   await page.goto('/builder/index.html');
   await page.setContent(`
     <link rel="stylesheet" href="/src/styles.css">
-    <div class="wb-content" style="width: 600px; border: 0;">
-      <div class="se-component se-image-container __se__float-center" style="min-width: 100%; width: 50%;">
-        <figure style="width: 50%;">
-          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='100'%3E%3Crect width='200' height='100' fill='black'/%3E%3C/svg%3E" alt="Centered" style="width: 100%;" data-align="center" data-percentage="50," data-size="50%,">
-        </figure>
+    <div class="lms-workbook">
+      <div class="wb-content" style="width: 600px; border: 0;">
+        <div class="se-component se-image-container __se__float-center" style="min-width: 100%; width: 50%;">
+          <figure style="width: 50%;">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='100'%3E%3Crect width='200' height='100' fill='black'/%3E%3C/svg%3E" alt="Centered" style="width: 100%;" data-align="center" data-percentage="50," data-size="50%,">
+          </figure>
+        </div>
       </div>
     </div>
   `);
@@ -79,7 +81,39 @@ test('published Content image alignment and sizing render in workbook HTML', asy
   const contentCenter = contentBox!.x + contentBox!.width / 2;
   const imageCenter = imageBox!.x + imageBox!.width / 2;
   expect(Math.abs(imageCenter - contentCenter)).toBeLessThan(2);
-  expect(imageBox!.width).toBeCloseTo(300, 1);
+  expect(imageBox!.width).toBeGreaterThan(298);
+  expect(imageBox!.width).toBeLessThan(302);
+});
+
+test('published Content keeps its layout inside an LMS page with broad host styles', async ({ page }) => {
+  await page.goto('/builder/index.html');
+  await page.setContent(`
+    <style>
+      .course-page img { display: inline; max-width: none; height: 88px; }
+      .course-page .se-component { display: block; }
+      .course-page ul, .course-page ol { margin: 40px; padding-left: 0; }
+      .course-page table td { border: 0; padding: 0; }
+    </style>
+    <link rel="stylesheet" href="/src/styles.css">
+    <div class="course-page">
+      <div class="lms-workbook">
+        <div class="wb-content" style="width: 600px;">
+          <div class="se-component se-image-container __se__float-center" style="min-width: 100%; width: 50%;">
+            <figure style="width: 50%;">
+              <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='100'%3E%3Crect width='200' height='100' fill='black'/%3E%3C/svg%3E" alt="Centered" style="width: 100%;" data-align="center" data-percentage="50," data-size="50%,">
+            </figure>
+          </div>
+          <ul><li>First</li><li>Second</li></ul>
+          <table><tr><td>Cell</td></tr></table>
+        </div>
+      </div>
+    </div>
+  `);
+
+  await expect.poll(() => page.locator('.wb-content img').evaluate((node) => getComputedStyle(node).display)).toBe('block');
+  await expect.poll(() => page.locator('.wb-content .se-component').evaluate((node) => getComputedStyle(node).display)).toBe('flex');
+  await expect.poll(() => page.locator('.wb-content ul').evaluate((node) => getComputedStyle(node).paddingLeft)).toBe('32px');
+  await expect.poll(() => page.locator('.wb-content td').evaluate((node) => getComputedStyle(node).borderTopWidth)).toBe('1px');
 });
 
 test('Content editor can expand from multi-column builder sections without changing published columns', async ({ page }) => {

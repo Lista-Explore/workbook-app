@@ -388,6 +388,23 @@ describe("exportWorkbookPdf — image embedding", () => {
       { text: "ln", bold: true, italic: true, underline: true, strike: true, color: { red: 1, green: 0, blue: 221 / 255, type: "RGB" } },
     ]);
   });
+
+  it("keeps Content lists and rules as separate PDF layout entries instead of flattening them into one paragraph", () => {
+    const entries = contentEntries({
+      id: "content",
+      type: "content",
+      html: "<p>Start</p><ul><li><strong>First</strong> item</li><li>Second item</li></ul><ol><li>Numbered</li></ol><hr><p>End</p>",
+    });
+
+    expect(entries).toMatchObject([
+      { type: "text", runs: [{ text: "Start" }] },
+      { type: "text", runs: [{ text: "• " }, { text: "First", bold: true }, { text: " item" }] },
+      { type: "text", runs: [{ text: "• " }, { text: "Second item" }] },
+      { type: "text", runs: [{ text: "1. " }, { text: "Numbered" }] },
+      { type: "rule" },
+      { type: "text", runs: [{ text: "End" }] },
+    ]);
+  });
 });
 
 describe("exportWorkbookPdf — checklist and rich text", () => {

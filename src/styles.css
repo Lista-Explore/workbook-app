@@ -377,33 +377,35 @@
   color: #6b7280;
 }
 
-/* Rich content is shared by preview and published workbooks. */
-.wb-content { font-family: Arial, sans-serif; font-size: 16px; line-height: 1.5; overflow-wrap: anywhere; }
-.wb-content p { margin: 0 0 10px; }
-.wb-content img { display: block; max-width: 100%; height: auto; }
-.wb-content figure { margin: 0; max-width: 100%; }
-.wb-content figure figcaption { padding: 1em .5em; margin: 0; background: #f9f9f9; }
-.wb-content .se-component { display: flex; max-width: 100%; margin: 0 0 10px; padding: 1px; }
-.wb-content .se-image-container { width: auto; height: auto; max-width: 100%; }
-.wb-content .__se__float-left { justify-content: flex-start; float: left; margin-right: 4px; }
-.wb-content .__se__float-right { justify-content: flex-end; float: right; margin-left: 4px; }
-.wb-content .__se__float-center { justify-content: center; margin-left: auto; margin-right: auto; }
-.wb-content .__se__float-center > figure { margin-left: auto !important; margin-right: auto !important; }
-.wb-content .__se__float-none { justify-content: flex-start; float: none; }
-.wb-content table { border-collapse: collapse; max-width: 100%; }
-.wb-content td, .wb-content th { border: 1px solid #ccc; padding: 6px; }
-.wb-content blockquote { border-left: 4px solid #ccc; margin: 0 0 10px; padding-left: 12px; }
-.wb-content pre { white-space: pre-wrap; }
-.wb-content ul { list-style: disc; padding-left: 2em; }
-.wb-content ol { list-style: decimal; padding-left: 2em; }
-.wb-content hr.__se__solid { border-style: solid none none; }
-.wb-content hr.__se__dotted { border-style: dotted none none; }
-.wb-content hr.__se__dashed { border-style: dashed none none; }
-.wb-content .__se__p-bordered { border-top: 1px solid #b1b1b1; border-bottom: 1px solid #b1b1b1; padding: 4px 0; }
-.wb-content .__se__p-spaced { letter-spacing: 1px; }
-.wb-content .__se__p-neon { padding: 6px 4px; border: 2px solid #fff; border-radius: 6px; color: #fff; background: #000; font-style: italic; font-weight: 200; text-transform: uppercase; }
-.wb-content .__se__t-shadow { text-shadow: -0.2px 0 #999, 0 0.2px #999, 0.2px 0 #999, 0 -0.2px #999; }
-.wb-content .__se__t-code { padding: .2em .4em; border-radius: 6px; color: #666; background: rgba(27, 31, 35, .05); font-family: monospace; }
+/* Rich content is shared by preview and published workbooks. These selectors
+   include .lms-workbook so LMS theme styles don't accidentally win after
+   the pasted HTML is embedded in a course page. */
+.lms-workbook .wb-content { font-family: Arial, sans-serif; font-size: 16px; line-height: 1.5; overflow-wrap: anywhere; }
+.lms-workbook .wb-content p { margin: 0 0 10px; }
+.lms-workbook .wb-content img { display: block !important; max-width: 100% !important; height: auto !important; }
+.lms-workbook .wb-content figure { margin: 0; max-width: 100%; }
+.lms-workbook .wb-content figure figcaption { padding: 1em .5em; margin: 0; background: #f9f9f9; }
+.lms-workbook .wb-content .se-component { display: flex !important; max-width: 100%; margin: 0 0 10px; padding: 1px; }
+.lms-workbook .wb-content .se-image-container { width: auto; height: auto; max-width: 100%; }
+.lms-workbook .wb-content .__se__float-left { justify-content: flex-start; float: left; margin-right: 4px; }
+.lms-workbook .wb-content .__se__float-right { justify-content: flex-end; float: right; margin-left: 4px; }
+.lms-workbook .wb-content .__se__float-center { justify-content: center; margin-left: auto; margin-right: auto; }
+.lms-workbook .wb-content .__se__float-center > figure { margin-left: auto !important; margin-right: auto !important; }
+.lms-workbook .wb-content .__se__float-none { justify-content: flex-start; float: none; }
+.lms-workbook .wb-content table { border-collapse: collapse; max-width: 100%; }
+.lms-workbook .wb-content td, .lms-workbook .wb-content th { border: 1px solid #ccc; padding: 6px; }
+.lms-workbook .wb-content blockquote { border-left: 4px solid #ccc; margin: 0 0 10px; padding-left: 12px; }
+.lms-workbook .wb-content pre { white-space: pre-wrap; }
+.lms-workbook .wb-content ul { list-style: disc; margin: 0 0 10px; padding-left: 2em; }
+.lms-workbook .wb-content ol { list-style: decimal; margin: 0 0 10px; padding-left: 2em; }
+.lms-workbook .wb-content hr.__se__solid { border-style: solid none none; }
+.lms-workbook .wb-content hr.__se__dotted { border-style: dotted none none; }
+.lms-workbook .wb-content hr.__se__dashed { border-style: dashed none none; }
+.lms-workbook .wb-content .__se__p-bordered { border-top: 1px solid #b1b1b1; border-bottom: 1px solid #b1b1b1; padding: 4px 0; }
+.lms-workbook .wb-content .__se__p-spaced { letter-spacing: 1px; }
+.lms-workbook .wb-content .__se__p-neon { padding: 6px 4px; border: 2px solid #fff; border-radius: 6px; color: #fff; background: #000; font-style: italic; font-weight: 200; text-transform: uppercase; }
+.lms-workbook .wb-content .__se__t-shadow { text-shadow: -0.2px 0 #999, 0 0.2px #999, 0.2px 0 #999, 0 -0.2px #999; }
+.lms-workbook .wb-content .__se__t-code { padding: .2em .4em; border-radius: 6px; color: #666; background: rgba(27, 31, 35, .05); font-family: monospace; }
 
 /* Rich text answer field */
 
