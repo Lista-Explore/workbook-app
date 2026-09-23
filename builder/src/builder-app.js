@@ -6,7 +6,7 @@ import { renderWorksheetList } from "./ui/worksheet-list.js";
 import { renderSectionEditor } from "./ui/section-editor.js";
 import { renderPreviewPanel } from "./ui/preview-panel.js";
 import { renderPublishPanel } from "./ui/publish-panel.js";
-import { registerAllFields } from "../../src/fields/index.js";
+import { registerAllFields } from "../../src/fields/index.js?v=20260923-rich-text";
 
 const AUTOSAVE_DELAY_MS = 400;
 

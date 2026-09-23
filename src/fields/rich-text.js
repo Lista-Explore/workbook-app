@@ -30,8 +30,30 @@ function dispatchInput(editor) {
   editor.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-function applyCommand(editor, command, value = null) {
+function selectionInside(editor) {
+  const selection = document.getSelection();
+  if (!selection || selection.rangeCount === 0) return false;
+  const range = selection.getRangeAt(0);
+  return editor.contains(range.commonAncestorContainer);
+}
+
+function rememberSelection(editor) {
+  const selection = document.getSelection();
+  if (!selection || selection.rangeCount === 0 || !selectionInside(editor)) return null;
+  return selection.getRangeAt(0).cloneRange();
+}
+
+function restoreSelection(range) {
+  if (!range) return;
+  const selection = document.getSelection();
+  if (!selection) return;
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function applyCommand(editor, command, value = null, getSavedRange = () => null) {
   editor.focus();
+  if (!selectionInside(editor)) restoreSelection(getSavedRange());
   document.execCommand(command, false, value);
   dispatchInput(editor);
 }
@@ -54,17 +76,17 @@ export const richText = {
       option.textContent = label;
       formatSelect.appendChild(option);
     });
-    formatSelect.addEventListener("change", () => applyCommand(editor, "formatBlock", formatSelect.value));
     toolbar.appendChild(formatSelect);
 
-    COMMANDS.forEach(({ label, command, text }) => {
+    const buttons = COMMANDS.map(({ label, command, text }) => {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "wb-rich-text-btn";
       button.setAttribute("aria-label", label);
+      button.dataset.command = command;
       button.textContent = text;
-      button.addEventListener("click", () => applyCommand(editor, command));
       toolbar.appendChild(button);
+      return button;
     });
 
     const editor = document.createElement("div");
@@ -87,6 +109,24 @@ export const richText = {
     editor.addEventListener("blur", () => {
       editor.innerHTML = normalizeHtml(editor.innerHTML) || "<p><br></p>";
       dispatchInput(editor);
+    });
+
+    let savedRange = null;
+    const saveCurrentSelection = () => {
+      const range = rememberSelection(editor);
+      if (range) savedRange = range;
+    };
+    editor.addEventListener("keyup", saveCurrentSelection);
+    editor.addEventListener("mouseup", saveCurrentSelection);
+    editor.addEventListener("input", saveCurrentSelection);
+    formatSelect.addEventListener("focus", saveCurrentSelection);
+    formatSelect.addEventListener("change", () => applyCommand(editor, "formatBlock", formatSelect.value, () => savedRange));
+    buttons.forEach((button) => {
+      button.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        saveCurrentSelection();
+      });
+      button.addEventListener("click", () => applyCommand(editor, button.dataset.command, null, () => savedRange));
     });
 
     wrapper.appendChild(toolbar);
