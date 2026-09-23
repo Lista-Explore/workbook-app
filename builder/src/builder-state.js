@@ -1,4 +1,4 @@
-import { migrateContentField } from "../../src/fields/content.js";
+import { migrateContentField, repairContentHtmlSpacing, repairPdfTextSpacing } from "../../src/fields/content.js";
 import { generateId, slugify } from "../../src/core/id-generator.js";
 
 function emptyWorkbook() {
@@ -36,6 +36,7 @@ export class BuilderState {
         this._usedSectionIds.add(s.id);
         for (const f of s.fields || []) {
           migrateContentField(f);
+          normalizeAuthorField(f);
           this._usedFieldIds.add(f.id);
         }
       }
@@ -226,5 +227,20 @@ export class BuilderState {
 
   toConfig() {
     return JSON.parse(JSON.stringify(this.workbook));
+  }
+}
+
+function normalizeAuthorField(field) {
+  if (field.type === "content" && field.html) {
+    field.html = repairContentHtmlSpacing(field.html);
+  }
+  if (Array.isArray(field.options)) {
+    field.options = field.options.map((option) => repairPdfTextSpacing(option));
+  }
+  if (Array.isArray(field.optionsHtml)) {
+    field.optionsHtml = field.optionsHtml.map((html) => (html ? repairContentHtmlSpacing(html) : html));
+  }
+  if (field.label) {
+    field.label = repairPdfTextSpacing(field.label);
   }
 }

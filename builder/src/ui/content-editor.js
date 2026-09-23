@@ -1,4 +1,4 @@
-import { sanitizeContent } from "../../../src/fields/content.js";
+import { repairContentHtmlSpacing, sanitizeContent } from "../../../src/fields/content.js";
 
 const editors = new Set();
 const EDITOR_BUTTONS = [
@@ -34,13 +34,13 @@ function createEditor(textarea, field, onChange, { height = "260px", minHeight =
   });
   let lastHtml = "";
   const sync = (html = editor.getContents()) => {
-    const clean = sanitizeContent(html);
+    const clean = repairContentHtmlSpacing(html);
     if (clean === lastHtml) return;
     lastHtml = clean;
     onChange(clean);
   };
-  editor.setContents(sanitizeContent(field.html));
-  lastHtml = sanitizeContent(editor.getContents());
+  editor.setContents(repairContentHtmlSpacing(field.html));
+  lastHtml = repairContentHtmlSpacing(editor.getContents());
   editor.onChange = sync;
   editor.core.context.element.wysiwyg.setAttribute("aria-label", "Content text");
   const observer = new MutationObserver(() => queueMicrotask(() => sync()));
@@ -82,7 +82,7 @@ function openExpandedEditor(field, onChange, onClose) {
   dialog.querySelector(".builder-content-expand-close").addEventListener("click", close);
   dialog.addEventListener("close", () => {
     instance?.sync();
-    const clean = instance ? sanitizeContent(instance.editor.getContents()) : sanitizeContent(field.html);
+    const clean = instance ? repairContentHtmlSpacing(instance.editor.getContents()) : repairContentHtmlSpacing(field.html);
     destroyEditor(instance);
     dialog.remove();
     onClose?.(clean);
@@ -104,7 +104,7 @@ export function renderContentEditor(field, onChange) {
   let inlineInstance = null;
   expandBtn.addEventListener("click", () => openExpandedEditor(field, onChange, (html) => {
     if (!inlineInstance) return;
-    inlineInstance.editor.setContents(sanitizeContent(html));
+    inlineInstance.editor.setContents(repairContentHtmlSpacing(html));
     inlineInstance.sync();
   }));
   toolbar.appendChild(expandBtn);

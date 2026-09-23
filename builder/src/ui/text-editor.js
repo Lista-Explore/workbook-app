@@ -1,5 +1,5 @@
 import { richText } from "../../../src/fields/rich-text.js";
-import { contentText } from "../../../src/fields/content.js";
+import { contentText, repairContentHtmlSpacing } from "../../../src/fields/content.js";
 
 // Keep a plain-text companion for navigation, accessibility and older exports.
 export function renderTextEditor(model, key, className, name, onChange) {
@@ -10,7 +10,7 @@ export function renderTextEditor(model, key, className, name, onChange) {
   const editor = wrapper.querySelector('.wb-rich-text-input');
   editor.classList.add(className);
   editor.addEventListener('input', () => {
-    const html = richText.getValue(wrapper);
+    const html = repairContentHtmlSpacing(richText.getValue(wrapper));
     onChange({ [key]: contentText({ html }), [`${key}Html`]: html });
   });
   return wrapper;
