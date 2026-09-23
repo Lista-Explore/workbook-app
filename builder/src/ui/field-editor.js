@@ -339,6 +339,9 @@ export function renderFieldEditor(container, state, worksheetId, sectionId, sect
   const fieldList = document.createElement("div");
   fieldList.className = "builder-field-list";
   fieldList.dataset.columns = String(columnCount);
+  if ((section.fields || []).some((field) => field.type === "content")) {
+    fieldList.classList.add("builder-field-list-with-content");
+  }
 
   const columns = groupByColumn(section.fields, columnCount, (field) => field.column);
 
