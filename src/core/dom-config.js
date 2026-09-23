@@ -54,14 +54,12 @@ function fieldConfigFromWrapper(wrapper, column) {
   }
   if (type === "checklist") {
     const inputs = Array.from(wrapper.querySelectorAll(".wb-checklist-item input"));
-    const options = inputs.map((input) => {
-      const optLabel = wrapper.querySelector(`label[for="${input.id}"]`);
-      return optLabel ? optLabel.textContent.trim() : input.value;
-    });
+    const options = inputs.map((input) => input.value);
+    const optionsHtml = inputs.map((input) => sanitizeContent(input.nextElementSibling?.innerHTML || ""));
     const dependsOn = inputs.map((input) =>
       input.dataset.dependsOn !== undefined && input.dataset.dependsOn !== "" ? Number(input.dataset.dependsOn) : null
     );
-    return { ...base, options, dependsOn };
+    return { ...base, options, optionsHtml, dependsOn };
   }
   if (type === "dropdown") {
     const options = Array.from(wrapper.querySelectorAll("select option"))

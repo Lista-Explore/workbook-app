@@ -1,4 +1,5 @@
 import { createWrapper, createLabel, createErrorSlot } from "./field-helpers.js";
+import { sanitizeContent } from "./content.js";
 import { slugify } from "../core/id-generator.js";
 
 /**
@@ -31,6 +32,8 @@ export function syncChecklistState(wrapper) {
   if (progress) {
     const done = boxes.filter((box) => box.checked).length;
     progress.textContent = `${done} of ${boxes.length} done`;
+    const meter = wrapper.querySelector('.wb-checklist-meter');
+    if (meter) { meter.max = boxes.length || 1; meter.value = done; }
   }
 }
 
@@ -43,7 +46,12 @@ export const checklist = {
 
     const progress = document.createElement("div");
     progress.className = "wb-checklist-progress";
+    progress.setAttribute("aria-live", "polite");
     wrapper.appendChild(progress);
+    const meter = document.createElement("progress");
+    meter.className = "wb-checklist-meter";
+    meter.setAttribute("aria-label", "Checklist progress");
+    wrapper.appendChild(meter);
 
     const list = document.createElement("div");
     list.className = "wb-checklist";
@@ -65,7 +73,8 @@ export const checklist = {
 
       const label = document.createElement("label");
       label.setAttribute("for", itemId);
-      label.textContent = item;
+      if (field.optionsHtml?.[index]) label.innerHTML = sanitizeContent(field.optionsHtml[index]);
+      else label.textContent = item;
 
       row.appendChild(input);
       row.appendChild(label);

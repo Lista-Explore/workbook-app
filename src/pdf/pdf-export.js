@@ -208,6 +208,17 @@ export function wrapText(text, font, size, maxWidth) {
 
 const LINE_HEIGHT = 13;
 
+function checklistItemContent(field, index) {
+  const plain = document.createElement("div");
+  plain.textContent = field.options[index];
+  return { id: `${field.id}-item-${index}`, html: field.optionsHtml?.[index] || plain.innerHTML.replace(/\n/g, "<br>") };
+}
+
+function checklistRowHeights(field, font, boldFont, width) {
+  return (field.options || []).map((_, index) => Math.max(22,
+    contentHeight(checklistItemContent(field, index), new Map(), { font, boldFont: boldFont || font }, width - 36, new Map()) + 8));
+}
+
 function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFont) {
   if (field.type === "image") {
     const image = embeddedImages?.get(field.id);
@@ -248,8 +259,7 @@ function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFon
     // Must match the space the "checklist" case in drawField() actually
     // consumes: the progress line/bar (20), the card's own top/bottom
     // padding (8 each), and each row's height (22).
-    const count = (field.options || []).length || 1;
-    return 20 + 8 * 2 + count * 22 + labelHeight;
+    return 40 + 8 * 2 + checklistRowHeights(field, font, boldFont, width).reduce((sum, height) => sum + height, 0) + labelHeight;
   }
   return 40 + labelHeight;
 }
@@ -662,9 +672,9 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
       // the previous values (row height 18, checkbox/text ~19-20 below the
       // row's own top) put the divider line inside the checkbox and
       // crossing straight through the text above it.
-      const rowHeight = 22;
+      const rowHeights = checklistRowHeights(field, font, boldFont, width);
       const cardTopY = widgetY - 20;
-      const cardHeight = options.length * rowHeight + cardPad * 2;
+      const cardHeight = rowHeights.reduce((sum, height) => sum + height, 0) + cardPad * 2;
       const cardBottomY = cardTopY - cardHeight;
 
       page.drawRectangle({
@@ -676,8 +686,8 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
         borderWidth: 1,
       });
 
+      let rowTopY = cardTopY - cardPad;
       options.forEach((option, index) => {
-        const rowTopY = cardTopY - cardPad - index * rowHeight;
         const isChecked = selected.has(option);
         const cb = form.createCheckBox(`${field.id}__opt__${index}`);
         cb.addToPage(page, { x: x + 8, y: rowTopY - 16, width: 12, height: 12 });
@@ -691,7 +701,7 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
         // field beside it is worse than just leaving it off.
         const textX = x + 28;
         const textY = rowTopY - 13;
-        page.drawText(option, { x: textX, y: textY, size: 9, font, color: rgb(0, 0, 0) });
+        drawContent({ page, field: checklistItemContent(field, index), embeddedImages: new Map(), imageErrors: new Map(), fonts: { font, boldFont }, x: textX, y: textY, width: width - 36 });
         if (index > 0) {
           page.drawLine({
             start: { x, y: rowTopY },
@@ -700,6 +710,7 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
             color: gridColor,
           });
         }
+        rowTopY -= rowHeights[index];
       });
       return;
     }

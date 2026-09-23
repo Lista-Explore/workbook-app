@@ -598,3 +598,7 @@ input.builder-section-title-input:focus {
 .builder-content-expand-header { display: flex; align-items: center; justify-content: space-between; gap: 1em; margin-bottom: 1em; }
 .builder-content-expand-header h2 { margin: 0; font-size: 1.1em; }
 .builder-content-expand-body { max-height: calc(92vh - 6em); overflow: visible; }
+
+.builder-checklist-option-row { flex-wrap: wrap; }
+.builder-checklist-option-row > .builder-text-editor { flex: 1 1 100%; min-width: 0; }
+.builder-checklist-option-row .wb-rich-text-toolbar { flex-wrap: wrap; }

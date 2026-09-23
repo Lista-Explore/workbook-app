@@ -1,3 +1,4 @@
+import { renderTextEditor } from "./text-editor.js";
 import { renderContentEditor } from "./content-editor.js";
 import {
   DESIGNER_FIELD_TYPES,
@@ -79,21 +80,23 @@ function renderChecklistItemsEditor(field, onChange, onLightChange) {
   const dependsOn = field.dependsOn || (field.dependsOn = options.map(() => null));
   while (dependsOn.length < options.length) dependsOn.push(null);
 
+  const optionsHtml = field.optionsHtml || (field.optionsHtml = options.map(() => null));
   options.forEach((option, index) => {
     const row = document.createElement("div");
     row.className = "builder-option-row";
 
-    const input = document.createElement("input");
-    input.type = "text";
-    input.value = option;
-    input.addEventListener("input", () => {
-      options[index] = input.value;
-      // Not just a light refresh: other items' "Depends on" dropdowns
-      // show this item's label as an option and need to reflect the edit.
-      onChange({ options, dependsOn });
+    row.classList.add("builder-checklist-option-row");
+    const input = renderTextEditor({ text: option, textHtml: optionsHtml[index] }, "text", "builder-checklist-item-input", `Item ${index + 1}`, (patch) => {
+      options[index] = patch.text;
+      optionsHtml[index] = patch.textHtml;
+      wrap.querySelectorAll('select[data-checklist-dependency] option').forEach((entry) => {
+        if (entry.value === String(index)) entry.textContent = `Depends on: ${patch.text || `Item ${index + 1}`}`;
+      });
+      onLightChange();
     });
 
     const dependsSelect = document.createElement("select");
+    dependsSelect.dataset.checklistDependency = "true";
     const noneOpt = document.createElement("option");
     noneOpt.value = "";
     noneOpt.textContent = "Doesn't depend on anything";
@@ -117,6 +120,7 @@ function renderChecklistItemsEditor(field, onChange, onLightChange) {
     removeBtn.addEventListener("click", () => {
       onChange({
         options: options.filter((_, i) => i !== index),
+        optionsHtml: optionsHtml.filter((_, i) => i !== index),
         dependsOn: removeChecklistDependsOnIndex(dependsOn, index),
       });
     });
@@ -132,7 +136,7 @@ function renderChecklistItemsEditor(field, onChange, onLightChange) {
   addOptionBtn.className = "builder-add-option-btn";
   addOptionBtn.textContent = "+ Add option";
   addOptionBtn.addEventListener("click", () => {
-    onChange({ options: [...options, `Option ${options.length + 1}`], dependsOn: [...dependsOn, null] });
+    onChange({ options: [...options, `Option ${options.length + 1}`], optionsHtml: [...optionsHtml, null], dependsOn: [...dependsOn, null] });
   });
   wrap.appendChild(addOptionBtn);
 

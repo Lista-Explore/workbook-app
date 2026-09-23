@@ -11,8 +11,15 @@ test('builder supports checklist progress and rich text answers through preview,
   await section.locator('.builder-add-field-type-select').first().selectOption('checklist');
   await section.locator('.builder-add-field-btn').first().click();
   await section.locator('.builder-field-label-input').first().fill('Launch steps');
-  await section.locator('.builder-options-editor input[type="text"]').nth(0).fill('Plan');
-  await section.locator('.builder-options-editor input[type="text"]').nth(1).fill('Build');
+  await section.locator('.builder-checklist-item-input').nth(0).fill('Plan');
+  await section.locator('.builder-checklist-item-input').nth(1).fill('Build');
+  const firstItem = section.locator('.builder-checklist-item-input').first();
+  await firstItem.fill('Plan\nReview the brief');
+  await firstItem.press('ControlOrMeta+a');
+  await section.locator('.builder-checklist-option-row').first().locator('.wb-rich-text-format').selectOption('H2');
+  const secondItem = section.locator('.builder-checklist-item-input').nth(1);
+  await secondItem.press('ControlOrMeta+a');
+  await section.locator('.builder-checklist-option-row').nth(1).getByRole('button', { name: 'Bold', exact: true }).click();
 
   await section.locator('.builder-add-field-type-select').last().selectOption('rich-text');
   await section.locator('.builder-add-field-btn').last().click();
@@ -26,6 +33,9 @@ test('builder supports checklist progress and rich text answers through preview,
   await expect(preview.locator('.wb-checklist-progress')).toHaveText('0 of 2 done');
   await preview.locator('.wb-checklist-item input').first().check();
   await expect(preview.locator('.wb-checklist-progress')).toHaveText('1 of 2 done');
+  await expect(preview.locator('.wb-checklist-meter')).toHaveJSProperty('value', 1);
+  await expect(preview.locator('.wb-checklist-item label').first().locator('h2').first()).toContainText('Plan');
+  await expect(preview.locator('.wb-checklist-item label').nth(1).locator('b,strong').first()).toContainText('Build');
 
   const richText = preview.locator('.wb-rich-text-input');
   await richText.fill('Formatted response');
