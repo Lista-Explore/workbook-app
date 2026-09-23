@@ -634,3 +634,26 @@ input.builder-section-title-input:focus {
   color: var(--bd-accent);
   background: var(--bd-accent-soft);
 }
+
+.builder-standalone-block {
+  border: 1px solid var(--bd-border);
+  border-radius: var(--bd-radius);
+  background: var(--bd-surface);
+  padding: 0.75em;
+  margin-bottom: 1em;
+}
+
+.builder-standalone-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  margin-bottom: 0.65em;
+  color: var(--bd-muted);
+  font-size: 0.9em;
+}
+
+.builder-columns-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+}

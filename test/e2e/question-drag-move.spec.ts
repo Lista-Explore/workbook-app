@@ -24,7 +24,7 @@ test('builder moves one or more questions between standalone and section columns
   await columns.nth(0).getByRole('button', { name: '+ Add question', exact: true }).click();
   await columns.nth(0).locator('.builder-field-label-input').last().fill('Inside B');
 
-  const outside = editor.locator(':scope > .builder-fields-container').last();
+  const outside = editor.locator(':scope > .builder-standalone-block .builder-fields-container').last();
   await outside.getByRole('button', { name: '+ Add question', exact: true }).click();
   await outside.locator('.builder-field-label-input').last().fill('Outside C');
 
@@ -42,10 +42,10 @@ test('builder moves one or more questions between standalone and section columns
   await dragQuestions(
     page,
     columns.nth(1).locator('.builder-drag-handle').first(),
-    editor.locator(':scope > .builder-fields-container').last().locator('.builder-field-drop-zone')
+    editor.locator(':scope > .builder-standalone-block .builder-fields-container').last().locator('.builder-field-drop-zone')
   );
 
-  const finalOutside = editor.locator(':scope > .builder-fields-container').last();
+  const finalOutside = editor.locator(':scope > .builder-standalone-block .builder-fields-container').last();
   await expect.poll(() => finalOutside.locator('.builder-field-label-input').evaluateAll((els) => els.map((el) => (el as HTMLInputElement).value))).toEqual(['Inside A', 'Outside C']);
   await expect.poll(() => columns.nth(0).locator('.builder-field-label-input').evaluateAll((els) => els.map((el) => (el as HTMLInputElement).value))).toEqual(['Inside B']);
 });

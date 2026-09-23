@@ -5,7 +5,7 @@ test("standalone questions retain ordering, answers and drafts alongside section
   await page.locator("#builder-workbook-title").fill("Standalone workflow");
   await page.getByRole("button", { name: "Add worksheet", exact: true }).click();
   const editor = page.locator("#builder-section-editor");
-  const outside = editor.locator(":scope > .builder-fields-container");
+  const outside = editor.locator(":scope > .builder-standalone-block .builder-fields-container");
   await expect(editor.locator(".builder-section-card")).toHaveCount(0);
   for (const label of ["First question", "Second question"]) {
     await outside.last().getByRole("button", { name: "+ Add question", exact: true }).click();

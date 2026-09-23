@@ -1,5 +1,28 @@
 import { renderFieldEditor } from "./field-editor.js";
 
+
+function renderColumnsControl(section, state, worksheetId, onChange) {
+  const columnsLabel = document.createElement("label");
+  columnsLabel.className = "builder-columns-control";
+  columnsLabel.textContent = "Columns";
+  const columnsSelect = document.createElement("select");
+  [1, 2, 3].forEach((n) => {
+    const opt = document.createElement("option");
+    opt.value = String(n);
+    opt.textContent = String(n);
+    columnsSelect.appendChild(opt);
+  });
+  columnsSelect.value = String(section.columns || 1);
+  columnsSelect.addEventListener("change", () => {
+    const columns = Number(columnsSelect.value);
+    if (section.id) state.updateSection(worksheetId, section.id, { columns });
+    else section.columns = columns;
+    onChange();
+  });
+  columnsLabel.appendChild(columnsSelect);
+  return columnsLabel;
+}
+
 /**
  * `onChange` triggers a full rebuild (used for anything that adds/removes
  * a section or field, or otherwise changes what's on screen). `onLightChange`
@@ -14,10 +37,18 @@ export function renderSectionEditor(container, state, worksheetId, onChange, onL
 
   worksheet.sections.forEach((section) => {
     if (section.unsectioned) {
+      const block = document.createElement("div");
+      block.className = "builder-standalone-block";
+      block.dataset.sectionId = section.id;
+      const controls = document.createElement("div");
+      controls.className = "builder-standalone-controls";
+      controls.appendChild(renderColumnsControl(section, state, worksheetId, onChange));
       const fields = document.createElement("div");
       fields.className = "builder-fields-container";
       renderFieldEditor(fields, state, worksheetId, section.id, section, onChange, onLightChange);
-      container.appendChild(fields);
+      block.appendChild(controls);
+      block.appendChild(fields);
+      container.appendChild(block);
       return;
     }
     const card = document.createElement("div");
@@ -34,21 +65,7 @@ export function renderSectionEditor(container, state, worksheetId, onChange, onL
       onLightChange();
     });
 
-    const columnsLabel = document.createElement("label");
-    columnsLabel.textContent = "Columns";
-    const columnsSelect = document.createElement("select");
-    [1, 2, 3].forEach((n) => {
-      const opt = document.createElement("option");
-      opt.value = String(n);
-      opt.textContent = String(n);
-      columnsSelect.appendChild(opt);
-    });
-    columnsSelect.value = String(section.columns || 1);
-    columnsSelect.addEventListener("change", () => {
-      state.updateSection(worksheetId, section.id, { columns: Number(columnsSelect.value) });
-      onChange(); // structural: the editor's own field list re-lays-out into N columns
-    });
-    columnsLabel.appendChild(columnsSelect);
+    const columnsLabel = renderColumnsControl(section, state, worksheetId, onChange);
 
     const startCollapsedLabel = document.createElement("label");
     const startCollapsedCheckbox = document.createElement("input");
@@ -85,10 +102,21 @@ export function renderSectionEditor(container, state, worksheetId, onChange, onL
 
   // A trailing standalone group already provides an add-question control.
   if (!worksheet.sections.at(-1)?.unsectioned) {
+    const block = document.createElement("div");
+    block.className = "builder-standalone-block builder-standalone-placeholder";
+    const placeholder = { fields: [], columns: 1, unsectioned: true };
+    const controls = document.createElement("div");
+    controls.className = "builder-standalone-controls";
+    controls.appendChild(renderColumnsControl(placeholder, state, worksheetId, () => {
+      fields.innerHTML = "";
+      renderFieldEditor(fields, state, worksheetId, null, placeholder, onChange, onLightChange);
+    }));
     const fields = document.createElement("div");
     fields.className = "builder-fields-container";
-    renderFieldEditor(fields, state, worksheetId, null, { fields: [] }, onChange, onLightChange);
-    container.appendChild(fields);
+    renderFieldEditor(fields, state, worksheetId, null, placeholder, onChange, onLightChange);
+    block.appendChild(controls);
+    block.appendChild(fields);
+    container.appendChild(block);
   }
 
   const addSectionBtn = document.createElement("button");

@@ -138,7 +138,8 @@ export class BuilderState {
     // non-disclosing group, created only when the first question is added.
     let section;
     if (sectionId == null) {
-      section = this._addStandaloneSection(worksheetId);
+      section = this._addStandaloneSection(worksheetId, fieldConfig._sectionColumns || 1);
+      delete fieldConfig._sectionColumns;
     } else {
       section = this._findSection(worksheetId, sectionId);
     }
@@ -153,10 +154,10 @@ export class BuilderState {
   }
 
 
-  _addStandaloneSection(worksheetId) {
+  _addStandaloneSection(worksheetId, columns = 1) {
     const worksheet = this._findWorksheet(worksheetId);
     const id = generateId("questions", worksheet.sections.length, this._usedSectionIds);
-    const section = { id, title: "", columns: 1, unsectioned: true, fields: [] };
+    const section = { id, title: "", columns, unsectioned: true, fields: [] };
     worksheet.sections.push(section);
     return section;
   }
@@ -183,7 +184,7 @@ export class BuilderState {
     if (!moved.length) return;
 
     let destination = destinationSectionId == null
-      ? this._addStandaloneSection(worksheetId)
+      ? this._addStandaloneSection(worksheetId, Math.max(Number(destinationColumn) + 1 || 1, 1))
       : this._findSection(worksheetId, destinationSectionId);
 
     const maxColumn = Math.max((destination.columns || 1) - 1, 0);

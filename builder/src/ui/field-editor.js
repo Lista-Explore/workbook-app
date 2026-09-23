@@ -433,7 +433,9 @@ export function renderFieldEditor(container, state, worksheetId, sectionId, sect
     addToColumnBtn.textContent = "+ Add question";
     addToColumnBtn.title = "Add a new question of the selected type to the end of this column";
     addToColumnBtn.addEventListener("click", () => {
-      state.addField(worksheetId, sectionId, buildDefaultFieldConfig(typeSelect.value, columnIndex), insertIndex);
+      const fieldConfig = buildDefaultFieldConfig(typeSelect.value, columnIndex);
+      if (sectionId == null) fieldConfig._sectionColumns = columnCount;
+      state.addField(worksheetId, sectionId, fieldConfig, insertIndex);
       onChange();
     });
 
