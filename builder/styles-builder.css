@@ -376,7 +376,7 @@ input.builder-section-title-input:focus {
   align-items: stretch;
   border: 1px solid var(--bd-border-strong);
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .builder-field-list[data-columns="3"] {
@@ -386,7 +386,25 @@ input.builder-section-title-input:focus {
   align-items: stretch;
   border: 1px solid var(--bd-border-strong);
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
+}
+
+.builder-field-list[data-columns="2"]:has(.builder-content-editor),
+.builder-field-list[data-columns="3"]:has(.builder-content-editor) {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+}
+
+.builder-field-list[data-columns="2"]:has(.builder-content-editor) .builder-field-column,
+.builder-field-list[data-columns="3"]:has(.builder-content-editor) .builder-field-column {
+  border-left: 0;
+  border-bottom: 1px dotted var(--bd-border-strong);
+}
+
+.builder-field-list[data-columns="2"]:has(.builder-content-editor) .builder-field-column:last-child,
+.builder-field-list[data-columns="3"]:has(.builder-content-editor) .builder-field-column:last-child {
+  border-bottom: 0;
 }
 
 .builder-field-column {
@@ -423,6 +441,10 @@ input.builder-section-title-input:focus {
   flex-wrap: wrap;
   gap: 0.6em;
   align-items: center;
+}
+
+.builder-field-row-content {
+  align-items: flex-start;
 }
 
 .builder-reorder-controls {

@@ -244,6 +244,7 @@ function renderFieldRow({ field, index, fieldCount, state, worksheetId, sectionI
   row.appendChild(typeLabel);
 
   if (field.type === "content") {
+    row.classList.add("builder-field-row-content");
     row.appendChild(renderContentEditor(field, (html) => {
       state.updateField(worksheetId, sectionId, field.id, { html });
       onLightChange();

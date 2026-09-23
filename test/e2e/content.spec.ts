@@ -60,3 +60,29 @@ test('published Content image alignment and sizing render in workbook HTML', asy
   expect(Math.abs(imageCenter - contentCenter)).toBeLessThan(2);
   expect(imageBox!.width).toBeCloseTo(300, 1);
 });
+
+test('Content editor stays usable in multi-column builder sections without changing published columns', async ({ page }) => {
+  await page.goto('/builder/index.html');
+  await page.locator('#builder-workbook-title').fill('Content columns');
+  await page.getByRole('button', { name: 'Add worksheet', exact: true }).click();
+  await page.getByRole('button', { name: '+ Add section', exact: true }).click();
+  const section = page.locator('.builder-section-card').first();
+  await section.locator('select').first().selectOption('2');
+  await section.locator('.builder-add-field-type-select').first().selectOption('content');
+  await section.locator('.builder-add-field-btn').first().click();
+
+  const fieldList = section.locator('.builder-field-list');
+  await expect(fieldList).toHaveAttribute('data-columns', '2');
+  await expect(section.locator('.builder-content-editor')).toBeVisible();
+  await expect.poll(() => fieldList.evaluate((node) => getComputedStyle(node).display)).toBe('flex');
+  await expect.poll(() => section.locator('.builder-content-editor').boundingBox()).toMatchObject({ width: expect.any(Number) });
+
+  const body = section.locator('[contenteditable="true"][aria-label="Content text"]');
+  await expect(body).toBeVisible();
+  await body.fill('Editable in columns');
+  await body.press('ControlOrMeta+a');
+  await section.locator('.sun-editor button[data-command="bold"]').click();
+  await expect(body.locator('strong,b')).toHaveText('Editable in columns');
+
+  await expect(page.locator('#builder-workbook-html')).toHaveValue(/data-columns="2"/);
+});
