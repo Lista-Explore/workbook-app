@@ -16,11 +16,13 @@
         <div id="builder-settings-panel"></div>
         <p id="builder-status-text"></p>
         <button type="button" id="builder-preview-btn" class="builder-preview-btn">Preview</button>
-        <label class="builder-import-label" for="builder-import-input">
-          Import workbook
-          <input type="file" id="builder-import-input" accept="application/json" hidden />
-        </label>
-        <button type="button" id="builder-clear-all-btn" class="builder-clear-all-btn">Clear all</button>
+      <label class="builder-import-label" for="builder-import-input">
+        Import workbook
+        <input type="file" id="builder-import-input" accept="application/json" hidden />
+      </label>
+      <!-- New button for pasting LMS‑HTML directly -->
+      <button type="button" id="builder-import-html-btn" class="builder-import-html-btn">Import LMS‑HTML</button>
+      <button type="button" id="builder-clear-all-btn" class="builder-clear-all-btn">Clear all</button>
       </header>
 
       <div class="builder-body">
@@ -48,6 +50,15 @@
     </dialog>
 
     <script src="vendor/suneditor.min.js"></script>
+    <!-- Import LMS‑HTML dialog -->
+    <dialog id="builder-import-html-dialog" class="builder-import-html-dialog">
+      <div class="builder-import-html-dialog-header"><strong>Paste LMS‑HTML below</strong></div>
+      <textarea id="builder-import-html-textarea" rows="10" style="width:100%; margin-top:8px;"></textarea>
+      <div style="margin-top:8px; text-align:right;">
+        <button type="button" id="builder-import-html-cancel">Cancel</button>
+        <button type="button" id="builder-import-html-confirm">Import</button>
+      </div>
+    </dialog>
     <script type="module">
       import { startBuilderApp } from "./src/builder-app.js?v=20260923-rich-text";
 

@@ -602,6 +602,16 @@ input.builder-section-title-input:focus {
 .builder-checklist-option-row { flex-wrap: wrap; }
 .builder-checklist-option-row > .builder-text-editor { flex: 1 1 100%; min-width: 0; }
 .builder-checklist-option-row .wb-rich-text-toolbar { flex-wrap: wrap; }
+/* Reduce padding inside rich text editor for checklist items. The global
+   .wb-rich-text-input has 0.7em of padding which is too much for the
+   small, single-line checklist inputs. This rule overrides the padding
+   specifically within a .builder-checklist-option-row, keeping the
+   horizontal padding for readability while cutting the vertical padding
+   roughly in half.
+ */
+.builder-checklist-option-row .wb-rich-text-input {
+  padding: 0.35em 0.7em;
+}
 
 .builder-field-select {
   align-self: center;

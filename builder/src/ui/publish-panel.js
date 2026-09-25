@@ -13,15 +13,15 @@ registerAllFields();
 // time after a push. A commit-pinned URL has no resolution step to go
 // stale: it's correct the instant it's first requested, forever after.
 //
-// RUNTIME_COMMIT MUST be bumped (to the new commit's SHA) every single
-// time ANY file this reaches changes — styles.css, auto-mount.js, or
-// anything the runtime bundle is built from. There is no dynamic
-// resolution for the CSS line by design: it's a real <link>, not a
-// script, because the LMS this gets pasted into needs it to actually be
-// one. That trade-off is deliberate: forgetting this bump is the failure
-// mode, so treat bumping it as part of every commit that touches those
-// files, not an afterthought.
-const RUNTIME_COMMIT = "8f434e88f39e69541321be0ea73dc2306a2964ce";
+// Historically the snippet contained a hard‑coded commit SHA to guarantee a
+// stable download. That required manual bumping of this file and any
+// documentation whenever the runtime changed.
+//
+// To simplify the embed process, we now reference the `latest` tag from
+// jsDelivr, which always resolves to the most recent commit on the
+// default branch. The runtime is then fetched with a URL that never
+// changes, regardless of updates.
+const RUNTIME_COMMIT = "latest";
 const RUNTIME_CSS_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@${RUNTIME_COMMIT}/src/styles.css`;
 const RUNTIME_LOADER_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@${RUNTIME_COMMIT}/src/auto-mount.js`;
 
