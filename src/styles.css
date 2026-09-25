@@ -292,13 +292,6 @@
 .wb-checklist-item {
   display: flex;
   align-items: center;
-  gap: 0.7em;
-  /* Reduce vertical padding for checklist items in exported HTML.
-     The original value (0.75em) makes each row noticeably tall.
-     Setting it to 0.4em keeps the list compact while preserving
-     the horizontal padding for readability.
-  */
-  padding: 0.4em 0.9em;
   transition: background-color 0.15s ease;
 }
 
