@@ -21,7 +21,8 @@ registerAllFields();
 // jsDelivr, which always resolves to the most recent commit on the
 // default branch. The runtime is then fetched with a URL that never
 // changes, regardless of updates.
-const RUNTIME_COMMIT = "latest";
+// Updated to point to the latest runtime commit SHA
+const RUNTIME_COMMIT = "662a2f6e76aa87b52667e769973a7591e7264344";
 const RUNTIME_CSS_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@${RUNTIME_COMMIT}/src/styles.css`;
 const RUNTIME_LOADER_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@${RUNTIME_COMMIT}/src/auto-mount.js`;
 
@@ -158,4 +159,45 @@ export function renderPublishPanel(container, state, { onStatus } = {}) {
   container.appendChild(setupLabel);
   container.appendChild(htmlLabel);
   container.appendChild(downloadPdfBtn);
+  // --- CDN purge button ---
+  const purgeBtn = document.createElement("button");
+  purgeBtn.type = "button";
+  purgeBtn.id = "builder-purge-cdn-btn";
+  purgeBtn.textContent = "Purge jsDelivr CDN cache";
+  purgeBtn.addEventListener("click", async () => {
+    const token = process?.env?.JSDELIVR_TOKEN;
+    if (!token) {
+      onStatus?.("Missing JSDELIVR_TOKEN environment variable. Cannot purge CDN.");
+      return;
+    }
+    try {
+      const urls = [RUNTIME_CSS_URL, RUNTIME_LOADER_URL];
+      await Promise.all(urls.map((u) => purgeJsDelivr(u, token)));
+      onStatus?.("jsDelivr CDN purge request sent.");
+    } catch (e) {
+      onStatus?.(`CDN purge failed: ${e.message}`);
+    }
+  });
+  container.appendChild(purgeBtn);
+}
+
+/**
+ * Sends a POST request to the jsDelivr cache purge endpoint.
+ * @param {string} url The full CDN URL to purge.
+ * @param {string} token The jsDelivr API token.
+ * @returns {Promise<void>}
+ */
+async function purgeJsDelivr(url, token) {
+  const response = await fetch("https://api.jsdelivr.com/v1/cache/purge", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ url }),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`HTTP ${response.status}: ${text}`);
+  }
 }
