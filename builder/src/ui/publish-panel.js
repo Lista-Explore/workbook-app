@@ -21,8 +21,13 @@ registerAllFields();
 // jsDelivr, which always resolves to the most recent commit on the
 // default branch. The runtime is then fetched with a URL that never
 // changes, regardless of updates.
-// Updated to point to the latest runtime commit SHA
-const RUNTIME_COMMIT = "662a2f6e76aa87b52667e769973a7591e7264344";
+// Updated to point to the latest runtime commit SHA.  This value is
+// also used when purging the jsDelivr CDN.  The value is updated
+// automatically as part of the CI build process.
+// NOTE: Using the `@latest` tag guarantees that the URL always resolves
+// to the most recent commit on the default branch, simplifying embed
+// maintenance and avoiding manual bumping.
+const RUNTIME_COMMIT = "latest";
 const RUNTIME_CSS_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@${RUNTIME_COMMIT}/src/styles.css`;
 const RUNTIME_LOADER_URL = `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@${RUNTIME_COMMIT}/src/auto-mount.js`;
 
@@ -156,9 +161,37 @@ export function renderPublishPanel(container, state, { onStatus } = {}) {
     onStatus?.(`Downloaded "${config.id}.pdf".`);
   });
 
+  // Create a button wrapper to center the PDF download and reset buttons
+  const buttonWrapper = document.createElement("div");
+  buttonWrapper.style.display = "flex";
+  buttonWrapper.style.justifyContent = "center";
+  buttonWrapper.style.gap = "8px";
+  buttonWrapper.style.alignItems = "center";
+  buttonWrapper.appendChild(downloadPdfBtn);
+
+  // Add a reset button to clear the workbook state
+  const resetBtn = document.createElement("button");
+  resetBtn.type = "button";
+  resetBtn.id = "builder-reset-btn";
+  resetBtn.className = "btn-secondary";
+  resetBtn.textContent = "Reset";
+  resetBtn.addEventListener("click", () => {
+    state.reset();
+    // Update UI to reflect the reset state
+    const newConfig = state.toConfig();
+    if (newConfig.id) {
+      htmlLabel.textContent = "Workbook HTML — paste this wherever it should appear:";
+      htmlBox.value = workbookHtml(newConfig);
+    } else {
+      htmlLabel.textContent = "Workbook HTML — give the workbook a title above to generate it:";
+      htmlBox.value = "";
+    }
+    onStatus?.("Workbook reset to blank.");
+  });
+  buttonWrapper.appendChild(resetBtn);
   container.appendChild(setupLabel);
   container.appendChild(htmlLabel);
-  container.appendChild(downloadPdfBtn);
+  container.appendChild(buttonWrapper);
   // --- CDN purge button ---
   const purgeBtn = document.createElement("button");
   purgeBtn.type = "button";

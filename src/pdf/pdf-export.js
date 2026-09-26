@@ -4,6 +4,19 @@ import fontkit from "../vendor/fontkit.esm.js";
 import { DISPLAY_ONLY_FIELD_TYPES } from "../fields/index.js";
 import { groupByColumn } from "../core/column-layout.js";
 
+/**
+ * Escape text for inclusion in HTML.  Mirrors what `document.createElement('div').textContent`
+ * would do, but works in environments without a DOM.
+ */
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 const PAGE_WIDTH = 612;
 const PAGE_HEIGHT = 792;
 const MARGIN = 50;
@@ -207,11 +220,10 @@ export function wrapText(text, font, size, maxWidth) {
 }
 
 const LINE_HEIGHT = 13;
-
 function checklistItemContent(field, index) {
-  const plain = document.createElement("div");
-  plain.textContent = field.options[index];
-  return { id: `${field.id}-item-${index}`, html: field.optionsHtml?.[index] || plain.innerHTML.replace(/\n/g, "<br>") };
+  const text = field.options[index] ?? "";
+  const html = field.optionsHtml?.[index] || escapeHtml(text).replace(/\n/g, "\u003cbr\u003e");
+  return { id: `${field.id}-item-${index}`, html };
 }
 
 function checklistRowHeights(field, font, boldFont, width) {
@@ -259,7 +271,14 @@ function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFon
     // Must match the space the "checklist" case in drawField() actually
     // consumes: the progress line/bar (20), the card's own top/bottom
     // padding (8 each), and each row's height (22).
-    return 40 + 8 * 2 + checklistRowHeights(field, font, boldFont, width).reduce((sum, height) => sum + height, 0) + labelHeight;
+    // The checklist PDF card reserves space for a progress bar (20) and top/bottom
+    // padding (8 each). In the original implementation the progress bar was
+    // drawn, but we now omit it. The remaining fixed height is therefore
+    // 20 + 8 + 8 = 36.
+    // With the progress bar omitted, only the top and bottom padding of the
+    // card (8px each) remains, totaling 16px.  This is added to the sum of
+    // row heights and the label height.
+    return 16 + checklistRowHeights(field, font, boldFont, width).reduce((sum, height) => sum + height, 0) + labelHeight;
   }
   return 40 + labelHeight;
 }
@@ -760,20 +779,10 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
       const mutedColor = rgb(0.42, 0.45, 0.5);
       const gridColor = rgb(0.82, 0.84, 0.87);
 
-      const progressText = `${doneCount} of ${options.length} done`;
-      page.drawText(progressText, {
-        x,
-        y: widgetY,
-        size: 9,
-        font: boldFont || font,
-        color: mutedColor,
-      });
-      const barY = widgetY - 8;
-      const barWidth = Math.min(width, 160);
-      page.drawRectangle({ x, y: barY, width: barWidth, height: 4, color: rgb(0.9, 0.91, 0.93) });
-      if (options.length > 0 && doneCount > 0) {
-        page.drawRectangle({ x, y: barY, width: barWidth * (doneCount / options.length), height: 4, color: rgb(0.25, 0.27, 0.31) });
-      }
+      // The progress bar and text are omitted in the PDF output for checklist
+      // fields, as they serve only a UI role in the runtime preview. The
+      // layout calculations still reserve the same vertical space to keep
+      // the card alignment consistent with the on‑screen representation.
 
       const cardPad = 8;
       // ROW_HEIGHT must leave real clearance below the checkbox/text (which
@@ -782,7 +791,9 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
       // row's own top) put the divider line inside the checkbox and
       // crossing straight through the text above it.
       const rowHeights = checklistRowHeights(field, font, boldFont, width);
-      const cardTopY = widgetY - 20;
+      // In the PDF version we no longer render a progress bar; the card
+      // therefore starts directly at the widget baseline.
+      const cardTopY = widgetY;
       const cardHeight = rowHeights.reduce((sum, height) => sum + height, 0) + cardPad * 2;
       const cardBottomY = cardTopY - cardHeight;
 
@@ -921,26 +932,25 @@ export async function exportWorkbookPdf(config, data) {
     const wsValues = worksheetsData[worksheet.id] || {};
 
     function drawPagedChecklist(field, value, x, width) {
+      // PDF export uses a light gray grid color for checklist card borders and
+      // divider lines. The same color is used in the screen rendering
+      // implementation, but in the PDF version the variable was previously
+      // defined inside a different switch case, making it inaccessible to
+      // this helper. Defining it here ensures the variable is available
+      // for all subsequent draws.
+      const gridColor = rgb(0.82, 0.84, 0.87);
       const labelBottomY = drawFieldLabel({ page, field, boldFont, x, y, width });
       let cursorY = labelBottomY - 4;
       const options = field.options || [];
       const selected = new Set(Array.isArray(value) ? value : []);
       const doneCount = options.filter((option) => selected.has(option)).length;
-      const muted = rgb(0.42, 0.45, 0.5);
-      const gridColor = rgb(0.82, 0.84, 0.87);
-      const progressText = `${doneCount} of ${options.length} done`;
-      page.drawText(progressText, { x, y: cursorY, size: 9, font: boldFont || font, color: muted });
-      const barY = cursorY - 8;
-      const barWidth = Math.min(width, 160);
-      page.drawRectangle({ x, y: barY, width: barWidth, height: 4, color: rgb(0.9, 0.91, 0.93) });
-      if (options.length > 0 && doneCount > 0) {
-        page.drawRectangle({ x, y: barY, width: barWidth * (doneCount / options.length), height: 4, color: rgb(0.25, 0.27, 0.31) });
-      }
+      // The progress bar/text is omitted in the PDF version for checklist
+      // fields. The card starts immediately after the label.
 
       const cardPad = 8;
       const rowHeights = checklistRowHeights(field, font, boldFont, width);
       let index = 0;
-      cursorY -= 20;
+      // No progress bar to skip; card begins right after the label.
 
       while (index < options.length) {
         ensureSpace(cardPad * 2 + Math.min(rowHeights[index] || 22, 40));
