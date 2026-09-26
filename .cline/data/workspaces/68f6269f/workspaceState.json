@@ -1,4 +1,8 @@
 {
   "__vscodeMigrationVersion": 3,
-  "workflowToggles": {}
+  "workflowToggles": {},
+  "localClineRulesToggles": {},
+  "localWindsurfRulesToggles": {},
+  "localCursorRulesToggles": {},
+  "localAgentsRulesToggles": {}
 }
