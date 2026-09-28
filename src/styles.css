@@ -243,6 +243,63 @@
   border-radius: 6px;
 }
 
+/* Input tables */
+
+.wb-table-scroll {
+  overflow-x: auto;
+}
+
+.wb-input-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--wb-border-strong);
+}
+
+.wb-input-table th,
+.wb-input-table td {
+  border: 1px solid var(--wb-border);
+  padding: 0.55em;
+  text-align: left;
+  vertical-align: top;
+}
+
+.wb-input-table th {
+  background: var(--wb-bg);
+  font-weight: 600;
+}
+
+.wb-input-table input,
+.wb-input-table textarea,
+.wb-input-table select {
+  width: 100%;
+  min-width: 9em;
+}
+
+.wb-table-cell-content {
+  min-width: 9em;
+  color: var(--wb-muted);
+}
+
+.wb-table-cell-content :first-child {
+  margin-top: 0;
+}
+
+.wb-table-cell-content :last-child {
+  margin-bottom: 0;
+}
+
+.wb-table-add-row {
+  align-self: flex-start;
+  font: inherit;
+  font-weight: 500;
+  padding: 0.5em 0.9em;
+  border: 1px solid var(--wb-border-strong);
+  border-radius: 7px;
+  background: var(--wb-surface);
+  color: var(--wb-text);
+  cursor: pointer;
+}
+
 /* Radio / checkbox groups */
 
 .wb-radio-group,

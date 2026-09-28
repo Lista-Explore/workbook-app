@@ -6,6 +6,7 @@ import { importWorkbookPdf } from "../pdf/pdf-import.js";
 import { domToConfig } from "./dom-config.js";
 import { selectTab, showWorksheetPanel } from "./navigation.js";
 import { syncChecklistState } from "../fields/checklist.js";
+import { wireTableAddRow } from "../fields/table.js";
 
 const AUTOSAVE_DELAY_MS = 400;
 
@@ -144,6 +145,10 @@ export async function hydrateWorkbook(rootEl, { storage } = {}) {
       syncChecklistState(wrapper);
       wrapper.dispatchEvent(new Event("change", { bubbles: true }));
     });
+  });
+
+  rootEl.querySelectorAll('.wb-field[data-field-type="table"]').forEach((wrapper) => {
+    wireTableAddRow(wrapper);
   });
 
   const adapter = {

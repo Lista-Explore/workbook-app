@@ -26,6 +26,7 @@ import { statement } from "./statement.js";
 import { signature } from "./signature.js";
 import { content } from "./content.js";
 import { image } from "./image.js";
+import { table } from "./table.js";
 
 export function registerAllFields() {
   FieldRegistry.register("content", content);
@@ -55,6 +56,7 @@ export function registerAllFields() {
   FieldRegistry.register("statement", statement);
   FieldRegistry.register("signature", signature);
   FieldRegistry.register("image", image);
+  FieldRegistry.register("table", table);
 }
 
 export const DESIGNER_FIELD_TYPES = [
@@ -80,6 +82,7 @@ export const DESIGNER_FIELD_TYPES = [
   { type: "file", name: "File upload" },
   { type: "datalist", name: "Text with suggestions" },
   { type: "content", name: "Content" },
+  { type: "table", name: "Table" },
   { type: "signature", name: "Signature" },
 ];
 

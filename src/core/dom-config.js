@@ -67,6 +67,22 @@ function fieldConfigFromWrapper(wrapper, column) {
       .filter((value) => value !== "");
     return { ...base, options };
   }
+  if (type === "table") {
+    const tableEl = wrapper.querySelector(".wb-input-table");
+    const columns = Array.from(wrapper.querySelectorAll(".wb-input-table thead th")).map((th, index) => ({
+      id: th.dataset.columnId || `column_${index + 1}`,
+      label: th.textContent.trim() || `Column ${index + 1}`,
+      type: th.dataset.cellType || "short-text",
+      options: th.dataset.options ? JSON.parse(th.dataset.options) : [],
+      content: th.dataset.content || "",
+    }));
+    return {
+      ...base,
+      columns,
+      initialRows: wrapper.querySelectorAll(".wb-table-input-row").length || 1,
+      allowAddRows: tableEl?.dataset.allowAddRows === "true",
+    };
+  }
   if (type === "datalist") {
     const options = Array.from(wrapper.querySelectorAll("datalist option")).map((opt) => opt.value);
     return { ...base, options };

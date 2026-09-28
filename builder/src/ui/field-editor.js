@@ -7,6 +7,7 @@ import {
   IMAGE_FIELD_TYPES,
 } from "../../../src/fields/index.js";
 import { groupByColumn } from "../../../src/core/column-layout.js";
+import { TABLE_CELL_TYPES } from "../../../src/fields/table.js";
 
 function renderOptionsEditor(field, onChange, onLightChange) {
   const wrap = document.createElement("div");
@@ -47,6 +48,137 @@ function renderOptionsEditor(field, onChange, onLightChange) {
     onChange({ options: [...options, `Option ${options.length + 1}`] });
   });
   wrap.appendChild(addOptionBtn);
+
+  return wrap;
+}
+
+function defaultTableColumns() {
+  return [
+    { id: "column_1", label: "Column 1", type: "short-text", options: [] },
+    { id: "column_2", label: "Column 2", type: "long-text", options: [] },
+  ];
+}
+
+function normalizeTableColumns(field) {
+  if (!Array.isArray(field.columns) || field.columns.length === 0) {
+    field.columns = defaultTableColumns();
+  }
+  field.columns.forEach((column, index) => {
+    column.id = column.id || `column_${index + 1}`;
+    column.label = column.label || `Column ${index + 1}`;
+    column.type = column.type || "short-text";
+    if (!Array.isArray(column.options)) column.options = [];
+    if (column.content == null) column.content = "";
+  });
+  if (!field.initialRows) field.initialRows = 1;
+}
+
+function renderTableEditor(field, onChange, onLightChange) {
+  normalizeTableColumns(field);
+  const wrap = document.createElement("div");
+  wrap.className = "builder-table-editor";
+
+  const rowCountLabel = document.createElement("label");
+  rowCountLabel.textContent = "Starting rows";
+  const rowCountInput = document.createElement("input");
+  rowCountInput.type = "number";
+  rowCountInput.min = "1";
+  rowCountInput.value = String(field.initialRows || 1);
+  rowCountInput.addEventListener("input", () => {
+    field.initialRows = Math.max(Number(rowCountInput.value) || 1, 1);
+    onLightChange();
+  });
+  rowCountLabel.appendChild(rowCountInput);
+  wrap.appendChild(rowCountLabel);
+
+  const addRowsLabel = document.createElement("label");
+  const addRowsCheckbox = document.createElement("input");
+  addRowsCheckbox.type = "checkbox";
+  addRowsCheckbox.checked = Boolean(field.allowAddRows);
+  addRowsCheckbox.addEventListener("change", () => {
+    field.allowAddRows = addRowsCheckbox.checked;
+    onChange({ allowAddRows: addRowsCheckbox.checked });
+  });
+  addRowsLabel.appendChild(addRowsCheckbox);
+  addRowsLabel.appendChild(document.createTextNode(" Learners can add rows"));
+  wrap.appendChild(addRowsLabel);
+
+  const columnsWrap = document.createElement("div");
+  columnsWrap.className = "builder-table-columns";
+  field.columns.forEach((column, index) => {
+    const row = document.createElement("div");
+    row.className = "builder-table-column-row";
+
+    const labelInput = document.createElement("input");
+    labelInput.type = "text";
+    labelInput.value = column.label;
+    labelInput.placeholder = `Column ${index + 1}`;
+    labelInput.addEventListener("input", () => {
+      column.label = labelInput.value;
+      onLightChange();
+    });
+    row.appendChild(labelInput);
+
+    const typeSelect = document.createElement("select");
+    TABLE_CELL_TYPES.forEach(({ type, name }) => {
+      const opt = document.createElement("option");
+      opt.value = type;
+      opt.textContent = name;
+      typeSelect.appendChild(opt);
+    });
+    typeSelect.value = column.type;
+    typeSelect.addEventListener("change", () => {
+      column.type = typeSelect.value;
+      onChange({ columns: field.columns });
+    });
+    row.appendChild(typeSelect);
+
+    if (column.type === "dropdown") {
+      const optionsInput = document.createElement("input");
+      optionsInput.type = "text";
+      optionsInput.value = column.options.join(", ");
+      optionsInput.placeholder = "Options, separated by commas";
+      optionsInput.addEventListener("input", () => {
+        column.options = optionsInput.value.split(",").map((option) => option.trim()).filter(Boolean);
+        onLightChange();
+      });
+      row.appendChild(optionsInput);
+    }
+
+    if (column.type === "content") {
+      const contentInput = document.createElement("input");
+      contentInput.type = "text";
+      contentInput.value = column.content || "";
+      contentInput.placeholder = "Content shown in this column";
+      contentInput.addEventListener("input", () => {
+        column.content = contentInput.value;
+        onLightChange();
+      });
+      row.appendChild(contentInput);
+    }
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.textContent = "Remove column";
+    removeBtn.disabled = field.columns.length <= 1;
+    removeBtn.addEventListener("click", () => {
+      onChange({ columns: field.columns.filter((_, i) => i !== index) });
+    });
+    row.appendChild(removeBtn);
+
+    columnsWrap.appendChild(row);
+  });
+  wrap.appendChild(columnsWrap);
+
+  const addColumnBtn = document.createElement("button");
+  addColumnBtn.type = "button";
+  addColumnBtn.className = "builder-add-option-btn";
+  addColumnBtn.textContent = "+ Add column";
+  addColumnBtn.addEventListener("click", () => {
+    const next = field.columns.length + 1;
+    onChange({ columns: [...field.columns, { id: `column_${next}`, label: `Column ${next}`, type: "short-text", options: [] }] });
+  });
+  wrap.appendChild(addColumnBtn);
 
   return wrap;
 }
@@ -152,6 +284,7 @@ function buildDefaultFieldConfig(type, column) {
     ...(type === "content" ? { html: "<p><br></p>" } : {}),
     column: column || 0,
     ...(needsOptions ? { options: ["Option 1", "Option 2"] } : {}),
+    ...(type === "table" ? { columns: defaultTableColumns(), initialRows: 1, allowAddRows: true } : {}),
     ...(isImage ? { src: "", alt: "", caption: "" } : {}),
   };
 }
@@ -315,6 +448,17 @@ function renderFieldRow({ field, index, fieldCount, state, worksheetId, sectionI
   if (field.type === "checklist") {
     row.appendChild(
       renderChecklistItemsEditor(
+        field,
+        (patch) => {
+          state.updateField(worksheetId, sectionId, field.id, patch);
+          onChange();
+        },
+        onLightChange
+      )
+    );
+  } else if (field.type === "table") {
+    row.appendChild(
+      renderTableEditor(
         field,
         (patch) => {
           state.updateField(worksheetId, sectionId, field.id, patch);

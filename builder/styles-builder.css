@@ -503,6 +503,47 @@ input.builder-section-title-input:focus {
   color: var(--bd-muted);
 }
 
+.builder-table-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65em;
+  width: 100%;
+  padding: 0.6em 0 0 0.5em;
+  border-top: 1px dashed var(--bd-border-strong);
+  margin-top: 0.2em;
+}
+
+.builder-table-editor > label {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  color: var(--bd-muted);
+  font-size: 0.9em;
+}
+
+.builder-table-editor input[type="number"] {
+  width: 5.5em;
+}
+
+.builder-table-columns {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55em;
+}
+
+.builder-table-column-row {
+  display: grid;
+  grid-template-columns: minmax(8em, 1fr) 9em minmax(10em, 1fr) auto;
+  gap: 0.5em;
+  align-items: center;
+}
+
+.builder-table-column-row input,
+.builder-table-column-row select {
+  min-width: 0;
+  width: 100%;
+}
+
 /* Per-column: the type picker sits directly on top of that column's own
    "+ Add question" button, not shared at the top of the whole section. */
 .builder-add-field-row {

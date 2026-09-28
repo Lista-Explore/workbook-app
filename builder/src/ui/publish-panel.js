@@ -47,7 +47,11 @@ const VOID_ELEMENTS = new Set(["img", "input", "br", "hr"]);
 
 function formatAttributes(el) {
   return Array.from(el.attributes)
-    .map((attr) => ` ${attr.name}="${attr.value}"`)
+    .map((attr) => ` ${attr.name}="${String(attr.value)
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")}"`)
     .join("");
 }
 
