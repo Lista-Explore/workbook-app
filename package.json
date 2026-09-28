@@ -8,17 +8,16 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "dev": "node server.cjs",
-    "purge-cdn": "node scripts/purge-cdn.js"
+    "purge-cdn": "node scripts/purge-cdn.js",
     "build:runtime": "esbuild src/runtime-entry.js --bundle --format=iife --minify --outfile=src/dist/runtime.bundle.js"
-    ,"dev": "node server.cjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.47.0",
     "esbuild": "^0.21.5",
     "fake-indexeddb": "^6.0.0",
     "jsdom": "^25.0.0",
-    "vitest": "^2.1.0"
-    ,"mime-types": "^2.1.0"
+    "vitest": "^2.1.0",
+    "mime-types": "^2.1.0"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

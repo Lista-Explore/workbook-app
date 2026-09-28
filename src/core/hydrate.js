@@ -44,12 +44,12 @@ function worksheetIdFor(rootEl, wrapper) {
  * Builder's "Workbook HTML" output be plain, readable markup with no JSON,
  * while still being fully interactive once this script runs.
  */
-export async function hydrateWorkbook(rootEl) {
+export async function hydrateWorkbook(rootEl, { storage } = {}) {
   const config = domToConfig(rootEl);
   if (!config.id) return null;
 
-  const storage = createWorkbookStorage(config.id);
-  const saved = (await storage.get("state")) || { worksheets: {} };
+  const workbookStorage = storage || createWorkbookStorage(config.id);
+  const saved = (await workbookStorage.get("state")) || { worksheets: {} };
   const data = saved.worksheets ? saved : { worksheets: {} };
 
   function valueFor(fieldId) {
@@ -87,7 +87,7 @@ export async function hydrateWorkbook(rootEl) {
     }
   }
 
-  const persist = debounce(() => storage.set("state", data), AUTOSAVE_DELAY_MS);
+  const persist = debounce(() => workbookStorage.set("state", data), AUTOSAVE_DELAY_MS);
   if (migrated) persist();
 
   rootEl.addEventListener("input", (event) => {
@@ -161,7 +161,7 @@ export async function hydrateWorkbook(rootEl) {
         const value = valueFor(wrapper.dataset.fieldId);
         if (value !== undefined) field.setValue(wrapper, value);
       }
-      await storage.set("state", data);
+      await workbookStorage.set("state", data);
     },
     async clear() {
       data.worksheets = {};
@@ -170,7 +170,7 @@ export async function hydrateWorkbook(rootEl) {
         if (!FieldRegistry.has(type)) continue;
         FieldRegistry.get(type).setValue(wrapper, undefined);
       }
-      await storage.delete("state");
+      await workbookStorage.delete("state");
     },
   };
 

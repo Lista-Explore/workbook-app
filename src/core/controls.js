@@ -12,7 +12,8 @@ export function renderWorkbookControls(workbook) {
 
   const downloadBtn = document.createElement("button");
   downloadBtn.type = "button";
-  downloadBtn.className = "btn-primary";
+  // Use the dedicated download-pdf class for styling in LMS
+  downloadBtn.className = "download-pdf";
   downloadBtn.id = "wb-download-pdf-btn";
   downloadBtn.textContent = "Download PDF";
   downloadBtn.addEventListener("click", async () => {

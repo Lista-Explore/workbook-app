@@ -37,3 +37,14 @@ const script = document.createElement("script");
 script.type = "module";
 script.src = await resolveRuntimeUrl();
 document.head.appendChild(script);
+
+// Force a fresh load of the styles.css file by adding a cache‑busting
+// query string. Some browsers and CDNs may keep a cached copy of the
+// @latest CSS for a short period.  Adding a timestamp guarantees the
+// latest file is fetched without affecting other resources.
+const cssLink = document.querySelector('link[href*="styles.css"]');
+if (cssLink) {
+  const url = new URL(cssLink.href, document.baseURI);
+  url.searchParams.set('t', Date.now().toString());
+  cssLink.href = url.toString();
+}

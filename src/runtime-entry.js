@@ -7,4 +7,12 @@ import { registerAllFields, hydrateAllWorkbooks } from "./shared.js";
 // every change, and adds the download/upload/reset controls, all by
 // reading the HTML that's already there.
 registerAllFields();
-hydrateAllWorkbooks();
+
+// LMS pages may load this module before the pasted workbook HTML exists.
+// Hydration is the only path that can attach working controls, because it
+// builds the workbook adapter used by PDF export/import/reset.
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => hydrateAllWorkbooks());
+} else {
+  hydrateAllWorkbooks();
+}

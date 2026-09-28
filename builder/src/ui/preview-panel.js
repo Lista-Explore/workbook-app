@@ -1,4 +1,6 @@
-import { mountWorkbook } from "../../../src/shared.js";
+import { renderWorkbook } from "../../../src/core/renderer.js";
+import { hydrateWorkbook } from "../../../src/core/hydrate.js";
+import { createPreviewStorage } from "../../../src/core/storage.js";
 
 /**
  * Renders a live Runtime preview of the in-progress workbook. Uses the
@@ -17,9 +19,10 @@ export async function renderPreviewPanel(container, state) {
   }
 
   const mount = document.createElement("div");
-  mount.className = "lms-workbook";
+  mount.dataset.workbook = config.id;
+  renderWorkbook(config, mount);
   container.appendChild(mount);
 
-  const workbook = await mountWorkbook(config, mount);
+  const workbook = await hydrateWorkbook(mount, { storage: createPreviewStorage(config.id) });
   return workbook;
 }
