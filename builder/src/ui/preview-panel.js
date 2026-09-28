@@ -1,5 +1,4 @@
-import { Workbook } from "../../../src/core/workbook.js";
-import { createPreviewStorage } from "../../../src/core/storage.js";
+import { mountWorkbook } from "../../../src/shared.js";
 
 /**
  * Renders a live Runtime preview of the in-progress workbook. Uses the
@@ -21,7 +20,6 @@ export async function renderPreviewPanel(container, state) {
   mount.className = "lms-workbook";
   container.appendChild(mount);
 
-  const workbook = new Workbook(config, { storage: createPreviewStorage(config.id) });
-  await workbook.mount(mount);
+  const workbook = await mountWorkbook(config, mount);
   return workbook;
 }

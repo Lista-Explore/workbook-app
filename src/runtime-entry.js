@@ -1,5 +1,4 @@
-import { registerAllFields } from "./fields/index.js";
-import { hydrateAllWorkbooks } from "./core/hydrate.js";
+import { registerAllFields, hydrateAllWorkbooks } from "./shared.js";
 
 // Bundled (via `npm run build:runtime`) into a single file the loader
 // fetches fresh on every page load. The Workbook HTML the Builder gives you
