@@ -376,6 +376,41 @@
   color: #6b7280;
 }
 
+.lms-workbook #wb-controls button {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.55em 0.95em;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.lms-workbook #wb-controls .btn-primary,
+.lms-workbook #wb-controls .download-pdf {
+  border: 1px solid var(--wb-accent);
+  background: var(--wb-accent);
+  color: #ffffff;
+}
+
+.lms-workbook #wb-controls .btn-primary:hover,
+.lms-workbook #wb-controls .download-pdf:hover {
+  filter: brightness(1.08);
+}
+
+.lms-workbook #wb-controls .btn-secondary {
+  border: 1px solid var(--wb-border-strong);
+  background: var(--wb-surface);
+  color: var(--wb-text);
+}
+
+.lms-workbook #wb-controls .btn-secondary:hover {
+  background: var(--wb-bg);
+}
+
+.lms-workbook #wb-upload-pdf-input {
+  margin-left: 0.45em;
+  max-width: 16em;
+}
+
 /* Rich content is shared by preview and published workbooks. These selectors
    include .lms-workbook so LMS theme styles don't accidentally win after
    the pasted HTML is embedded in a course page. */
