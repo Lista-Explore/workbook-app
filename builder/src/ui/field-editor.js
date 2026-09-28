@@ -59,38 +59,87 @@ function defaultTableColumns() {
   ];
 }
 
-function normalizeTableColumns(field) {
-  if (!Array.isArray(field.columns) || field.columns.length === 0) {
-    field.columns = defaultTableColumns();
+function defaultTableCells() {
+  return [
+    [
+      { id: "cell_1_1", type: "header", content: "", options: [] },
+      { id: "cell_1_2", type: "header", content: "", options: [] },
+    ],
+    [
+      { id: "cell_2_1", type: "content", content: "", options: [] },
+      { id: "cell_2_2", type: "content", content: "", options: [] },
+    ],
+  ];
+}
+
+function makeTableCell(rowIndex, columnIndex, patch = {}) {
+  return {
+    id: `cell_${rowIndex + 1}_${columnIndex + 1}`,
+    type: rowIndex === 0 ? "header" : "content",
+    content: "",
+    options: [],
+    ...patch,
+  };
+}
+
+function cellsFromColumns(field) {
+  const columns = Array.isArray(field.columns) && field.columns.length ? field.columns : defaultTableColumns();
+  const rowCount = Math.max(Number(field.initialRows) || 1, 1) + 1;
+  return Array.from({ length: rowCount }, (_, rowIndex) =>
+    columns.map((column, columnIndex) => {
+      if (rowIndex === 0) {
+        return makeTableCell(rowIndex, columnIndex, {
+          id: `header_${column.id || columnIndex + 1}`,
+          type: "header",
+          content: column.label || `Column ${columnIndex + 1}`,
+        });
+      }
+      return makeTableCell(rowIndex, columnIndex, {
+        id: rowIndex === 1 ? column.id || `column_${columnIndex + 1}` : `cell_${rowIndex + 1}_${columnIndex + 1}`,
+        type: "content",
+        content: column.content || "",
+        options: [],
+      });
+    })
+  );
+}
+
+function normalizeTableCells(field) {
+  if (!Array.isArray(field.cells) || field.cells.length === 0) {
+    field.cells = Array.isArray(field.columns) && field.columns.length ? cellsFromColumns(field) : defaultTableCells();
   }
-  field.columns.forEach((column, index) => {
-    column.id = column.id || `column_${index + 1}`;
-    column.label = column.label || `Column ${index + 1}`;
-    column.type = column.type || "short-text";
-    if (!Array.isArray(column.options)) column.options = [];
-    if (column.content == null) column.content = "";
+  const columnCount = Math.max(...field.cells.map((row) => (Array.isArray(row) ? row.length : 0)), 1);
+  field.cells = field.cells.map((row, rowIndex) => {
+    const safeRow = Array.isArray(row) ? row : [];
+    return Array.from({ length: columnCount }, (_, columnIndex) => {
+      const cell = safeRow[columnIndex] || makeTableCell(rowIndex, columnIndex);
+      cell.id = cell.id || `cell_${rowIndex + 1}_${columnIndex + 1}`;
+      cell.type = cell.type || (rowIndex === 0 ? "header" : "content");
+      if (cell.content == null) cell.content = "";
+      if (!Array.isArray(cell.options)) cell.options = [];
+      return cell;
+    });
   });
-  if (!field.initialRows) field.initialRows = 1;
+  field.initialRows = Math.max(field.cells.length - 1, 1);
+}
+
+function tableCellTypeOptions() {
+  return [{ type: "header", name: "Header" }, ...TABLE_CELL_TYPES];
+}
+
+function selectedCellLabel(rowIndex, columnIndex) {
+  return `Cell ${rowIndex + 1}, ${columnIndex + 1}`;
 }
 
 function renderTableEditor(field, onChange, onLightChange) {
-  normalizeTableColumns(field);
+  normalizeTableCells(field);
+  let selected = { row: 0, column: 0 };
+
   const wrap = document.createElement("div");
   wrap.className = "builder-table-editor";
 
-  const rowCountLabel = document.createElement("label");
-  rowCountLabel.textContent = "Starting rows";
-  const rowCountInput = document.createElement("input");
-  rowCountInput.type = "number";
-  rowCountInput.min = "1";
-  rowCountInput.value = String(field.initialRows || 1);
-  rowCountInput.addEventListener("input", () => {
-    field.initialRows = Math.max(Number(rowCountInput.value) || 1, 1);
-    onLightChange();
-  });
-  rowCountLabel.appendChild(rowCountInput);
-  wrap.appendChild(rowCountLabel);
-
+  const settings = document.createElement("div");
+  settings.className = "builder-table-settings";
   const addRowsLabel = document.createElement("label");
   const addRowsCheckbox = document.createElement("input");
   addRowsCheckbox.type = "checkbox";
@@ -100,85 +149,177 @@ function renderTableEditor(field, onChange, onLightChange) {
     onChange({ allowAddRows: addRowsCheckbox.checked });
   });
   addRowsLabel.appendChild(addRowsCheckbox);
-  addRowsLabel.appendChild(document.createTextNode(" Learners can add rows"));
-  wrap.appendChild(addRowsLabel);
+  addRowsLabel.appendChild(document.createTextNode(' Show learner "Add row" button'));
+  settings.appendChild(addRowsLabel);
+  wrap.appendChild(settings);
 
-  const columnsWrap = document.createElement("div");
-  columnsWrap.className = "builder-table-columns";
-  field.columns.forEach((column, index) => {
-    const row = document.createElement("div");
-    row.className = "builder-table-column-row";
+  const toolbar = document.createElement("div");
+  toolbar.className = "builder-table-toolbar";
 
-    const labelInput = document.createElement("input");
-    labelInput.type = "text";
-    labelInput.value = column.label;
-    labelInput.placeholder = `Column ${index + 1}`;
-    labelInput.addEventListener("input", () => {
-      column.label = labelInput.value;
-      onLightChange();
-    });
-    row.appendChild(labelInput);
+  const selectedName = document.createElement("strong");
+  selectedName.textContent = selectedCellLabel(0, 0);
+  toolbar.appendChild(selectedName);
 
-    const typeSelect = document.createElement("select");
-    TABLE_CELL_TYPES.forEach(({ type, name }) => {
-      const opt = document.createElement("option");
-      opt.value = type;
-      opt.textContent = name;
-      typeSelect.appendChild(opt);
-    });
-    typeSelect.value = column.type;
-    typeSelect.addEventListener("change", () => {
-      column.type = typeSelect.value;
-      onChange({ columns: field.columns });
-    });
-    row.appendChild(typeSelect);
+  const typeSelect = document.createElement("select");
+  typeSelect.setAttribute("aria-label", "Selected cell type");
+  tableCellTypeOptions().forEach(({ type, name }) => {
+    const opt = document.createElement("option");
+    opt.value = type;
+    opt.textContent = name;
+    typeSelect.appendChild(opt);
+  });
+  toolbar.appendChild(typeSelect);
 
-    if (column.type === "dropdown") {
-      const optionsInput = document.createElement("input");
-      optionsInput.type = "text";
-      optionsInput.value = column.options.join(", ");
-      optionsInput.placeholder = "Options, separated by commas";
-      optionsInput.addEventListener("input", () => {
-        column.options = optionsInput.value.split(",").map((option) => option.trim()).filter(Boolean);
+  const optionsInput = document.createElement("input");
+  optionsInput.type = "text";
+  optionsInput.placeholder = "Dropdown options, separated by commas";
+  optionsInput.className = "builder-table-selected-options";
+  toolbar.appendChild(optionsInput);
+  wrap.appendChild(toolbar);
+
+  const gridWrap = document.createElement("div");
+  gridWrap.className = "builder-table-grid-wrap";
+  const tableEl = document.createElement("table");
+  tableEl.className = "builder-table-grid";
+  const tbody = document.createElement("tbody");
+
+  const selectedCell = () => field.cells[selected.row]?.[selected.column] || field.cells[0][0];
+  const syncToolbar = () => {
+    const cell = selectedCell();
+    selectedName.textContent = selectedCellLabel(selected.row, selected.column);
+    typeSelect.value = cell.type || "content";
+    optionsInput.value = (cell.options || []).join(", ");
+    optionsInput.hidden = cell.type !== "dropdown";
+    wrap.querySelectorAll(".builder-table-grid-cell-selected").forEach((el) => el.classList.remove("builder-table-grid-cell-selected"));
+    wrap.querySelector(`[data-table-row="${selected.row}"][data-table-column="${selected.column}"]`)?.classList.add("builder-table-grid-cell-selected");
+  };
+
+  const selectCell = (rowIndex, columnIndex) => {
+    selected = { row: rowIndex, column: columnIndex };
+    syncToolbar();
+  };
+
+  typeSelect.addEventListener("change", () => {
+    const cell = selectedCell();
+    cell.type = typeSelect.value;
+    if (!Array.isArray(cell.options)) cell.options = [];
+    onChange({ cells: field.cells, initialRows: Math.max(field.cells.length - 1, 1) });
+  });
+
+  optionsInput.addEventListener("input", () => {
+    const cell = selectedCell();
+    cell.options = optionsInput.value.split(",").map((option) => option.trim()).filter(Boolean);
+    onLightChange();
+  });
+
+  const focusCell = (rowIndex, columnIndex) => {
+    const editor = wrap.querySelector(`[data-table-row="${rowIndex}"][data-table-column="${columnIndex}"] .builder-table-cell-editor`);
+    editor?.focus();
+  };
+
+  const insertRowAfter = (rowIndex) => {
+    field.cells.splice(rowIndex + 1, 0, field.cells[0].map((_, columnIndex) => makeTableCell(rowIndex + 1, columnIndex)));
+    onChange({ cells: field.cells, initialRows: Math.max(field.cells.length - 1, 1) });
+  };
+
+  const insertColumnAfter = (columnIndex) => {
+    field.cells.forEach((row, rowIndex) => row.splice(columnIndex + 1, 0, makeTableCell(rowIndex, columnIndex + 1)));
+    onChange({ cells: field.cells });
+  };
+
+  field.cells.forEach((cellRow, rowIndex) => {
+    const tr = document.createElement("tr");
+    cellRow.forEach((cell, columnIndex) => {
+      if (!cell.type) cell.type = rowIndex === 0 ? "header" : "content";
+      if (!Array.isArray(cell.options)) cell.options = [];
+      const td = document.createElement("td");
+      td.className = "builder-table-grid-cell";
+      td.dataset.tableRow = String(rowIndex);
+      td.dataset.tableColumn = String(columnIndex);
+      td.dataset.cellType = cell.type;
+
+      const editor = document.createElement("div");
+      editor.className = "builder-table-cell-editor";
+      editor.contentEditable = "true";
+      editor.setAttribute("aria-label", selectedCellLabel(rowIndex, columnIndex));
+      editor.textContent = cell.content || "";
+      editor.addEventListener("focus", () => selectCell(rowIndex, columnIndex));
+      editor.addEventListener("input", () => {
+        cell.content = editor.textContent;
         onLightChange();
       });
-      row.appendChild(optionsInput);
-    }
-
-    if (column.type === "content") {
-      const contentInput = document.createElement("input");
-      contentInput.type = "text";
-      contentInput.value = column.content || "";
-      contentInput.placeholder = "Content shown in this column";
-      contentInput.addEventListener("input", () => {
-        column.content = contentInput.value;
-        onLightChange();
+      editor.addEventListener("keydown", (event) => {
+        if (event.key === "Tab") {
+          event.preventDefault();
+          const direction = event.shiftKey ? -1 : 1;
+          const nextColumn = columnIndex + direction;
+          if (nextColumn >= 0 && nextColumn < field.cells[0].length) focusCell(rowIndex, nextColumn);
+          else if (!event.shiftKey && rowIndex < field.cells.length - 1) focusCell(rowIndex + 1, 0);
+          else if (event.shiftKey && rowIndex > 0) focusCell(rowIndex - 1, field.cells[0].length - 1);
+        } else if (event.altKey && event.key === "ArrowDown") {
+          event.preventDefault();
+          insertRowAfter(rowIndex);
+        } else if (event.altKey && event.key === "ArrowRight") {
+          event.preventDefault();
+          insertColumnAfter(columnIndex);
+        }
       });
-      row.appendChild(contentInput);
-    }
-
-    const removeBtn = document.createElement("button");
-    removeBtn.type = "button";
-    removeBtn.textContent = "Remove column";
-    removeBtn.disabled = field.columns.length <= 1;
-    removeBtn.addEventListener("click", () => {
-      onChange({ columns: field.columns.filter((_, i) => i !== index) });
+      td.addEventListener("click", () => selectCell(rowIndex, columnIndex));
+      td.appendChild(editor);
+      tr.appendChild(td);
     });
-    row.appendChild(removeBtn);
 
-    columnsWrap.appendChild(row);
+    const controls = document.createElement("td");
+    controls.className = "builder-table-row-tools";
+    const insertRowBtn = document.createElement("button");
+    insertRowBtn.type = "button";
+    insertRowBtn.textContent = "Add row below";
+    insertRowBtn.setAttribute("aria-label", "Add table row below");
+    insertRowBtn.addEventListener("click", () => insertRowAfter(rowIndex));
+    const removeRowBtn = document.createElement("button");
+    removeRowBtn.type = "button";
+    removeRowBtn.textContent = "Remove row";
+    removeRowBtn.setAttribute("aria-label", "Remove table row");
+    removeRowBtn.disabled = field.cells.length <= 1;
+    removeRowBtn.addEventListener("click", () => {
+      field.cells.splice(rowIndex, 1);
+      onChange({ cells: field.cells, initialRows: Math.max(field.cells.length - 1, 1) });
+    });
+    controls.appendChild(insertRowBtn);
+    controls.appendChild(removeRowBtn);
+    tr.appendChild(controls);
+    tbody.appendChild(tr);
   });
-  wrap.appendChild(columnsWrap);
 
-  const addColumnBtn = document.createElement("button");
-  addColumnBtn.type = "button";
-  addColumnBtn.className = "builder-add-option-btn";
-  addColumnBtn.textContent = "+ Add column";
-  addColumnBtn.addEventListener("click", () => {
-    const next = field.columns.length + 1;
-    onChange({ columns: [...field.columns, { id: `column_${next}`, label: `Column ${next}`, type: "short-text", options: [] }] });
+  const columnTools = document.createElement("tr");
+  field.cells[0].forEach((_, columnIndex) => {
+    const td = document.createElement("td");
+    td.className = "builder-table-column-tools";
+    const insertColumnBtn = document.createElement("button");
+    insertColumnBtn.type = "button";
+    insertColumnBtn.textContent = "Add column right";
+    insertColumnBtn.setAttribute("aria-label", "Add table column to the right");
+    insertColumnBtn.addEventListener("click", () => insertColumnAfter(columnIndex));
+    const removeColumnBtn = document.createElement("button");
+    removeColumnBtn.type = "button";
+    removeColumnBtn.textContent = "Remove column";
+    removeColumnBtn.setAttribute("aria-label", "Remove table column");
+    removeColumnBtn.disabled = field.cells[0].length <= 1;
+    removeColumnBtn.addEventListener("click", () => {
+      field.cells.forEach((row) => row.splice(columnIndex, 1));
+      onChange({ cells: field.cells });
+    });
+    td.appendChild(insertColumnBtn);
+    td.appendChild(removeColumnBtn);
+    columnTools.appendChild(td);
   });
-  wrap.appendChild(addColumnBtn);
+  columnTools.appendChild(document.createElement("td"));
+  tbody.appendChild(columnTools);
+
+  tableEl.appendChild(tbody);
+  gridWrap.appendChild(tableEl);
+  wrap.appendChild(gridWrap);
+  syncToolbar();
 
   return wrap;
 }
@@ -284,7 +425,7 @@ function buildDefaultFieldConfig(type, column) {
     ...(type === "content" ? { html: "<p><br></p>" } : {}),
     column: column || 0,
     ...(needsOptions ? { options: ["Option 1", "Option 2"] } : {}),
-    ...(type === "table" ? { columns: defaultTableColumns(), initialRows: 1, allowAddRows: true } : {}),
+    ...(type === "table" ? { columns: defaultTableColumns(), cells: defaultTableCells(), initialRows: 1, allowAddRows: false } : {}),
     ...(isImage ? { src: "", alt: "", caption: "" } : {}),
   };
 }

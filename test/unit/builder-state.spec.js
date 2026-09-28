@@ -102,6 +102,16 @@ describe("BuilderState — sections", () => {
   it("throws a clear error for an unknown worksheet", () => {
     expect(() => state.addSection("nope")).toThrow(/not found/);
   });
+
+  it("inserts a new standalone question group after an existing standalone group", () => {
+    const ws = state.addWorksheet("WS1");
+    const first = state.addStandaloneSection(ws.id, { columns: 1 });
+    const named = state.addSection(ws.id, { title: "Named" });
+    const second = state.addStandaloneSection(ws.id, { columns: 2, afterSectionId: first.id });
+
+    expect(ws.sections.map((section) => section.id)).toEqual([first.id, second.id, named.id]);
+    expect(second).toMatchObject({ unsectioned: true, columns: 2, title: "" });
+  });
 });
 
 describe("BuilderState — fields", () => {
@@ -210,6 +220,18 @@ describe("BuilderState.toConfig", () => {
     // mutating the returned config must not affect internal state
     config.worksheets[0].title = "mutated";
     expect(state.workbook.worksheets[0].title).toBe("WS1");
+  });
+
+  it("omits empty standalone question groups from exported config", () => {
+    const ws = state.addWorksheet("WS1");
+    const empty = state.addStandaloneSection(ws.id, { columns: 2 });
+    const filled = state.addStandaloneSection(ws.id, { columns: 1 });
+    state.addField(ws.id, filled.id, { type: "short-text", label: "Visible" });
+
+    const config = state.toConfig();
+
+    expect(config.worksheets[0].sections.map((section) => section.id)).toEqual([filled.id]);
+    expect(config.worksheets[0].sections).not.toContainEqual(expect.objectContaining({ id: empty.id }));
   });
 });
 

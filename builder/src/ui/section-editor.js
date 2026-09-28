@@ -43,6 +43,15 @@ export function renderSectionEditor(container, state, worksheetId, onChange, onL
       const controls = document.createElement("div");
       controls.className = "builder-standalone-controls";
       controls.appendChild(renderColumnsControl(section, state, worksheetId, onChange));
+      const addLayoutBtn = document.createElement("button");
+      addLayoutBtn.type = "button";
+      addLayoutBtn.className = "builder-add-standalone-layout-btn";
+      addLayoutBtn.textContent = "+ Start new no-section layout";
+      addLayoutBtn.addEventListener("click", () => {
+        state.addStandaloneSection(worksheetId, { columns: 1, afterSectionId: section.id });
+        onChange();
+      });
+      controls.appendChild(addLayoutBtn);
       const fields = document.createElement("div");
       fields.className = "builder-fields-container";
       renderFieldEditor(fields, state, worksheetId, section.id, section, onChange, onLightChange);

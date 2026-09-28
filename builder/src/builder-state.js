@@ -101,6 +101,18 @@ export class BuilderState {
     return section;
   }
 
+  addStandaloneSection(worksheetId, { columns = 1, afterSectionId } = {}) {
+    const worksheet = this._findWorksheet(worksheetId);
+    const id = generateId("questions", worksheet.sections.length, this._usedSectionIds);
+    const section = { id, title: "", columns, unsectioned: true, fields: [] };
+    const afterIndex = afterSectionId
+      ? worksheet.sections.findIndex((s) => s.id === afterSectionId)
+      : -1;
+    if (afterIndex === -1) worksheet.sections.push(section);
+    else worksheet.sections.splice(afterIndex + 1, 0, section);
+    return section;
+  }
+
   removeSection(worksheetId, sectionId) {
     const worksheet = this._findWorksheet(worksheetId);
     worksheet.sections = worksheet.sections.filter((s) => s.id !== sectionId);
@@ -156,11 +168,7 @@ export class BuilderState {
 
 
   _addStandaloneSection(worksheetId, columns = 1) {
-    const worksheet = this._findWorksheet(worksheetId);
-    const id = generateId("questions", worksheet.sections.length, this._usedSectionIds);
-    const section = { id, title: "", columns, unsectioned: true, fields: [] };
-    worksheet.sections.push(section);
-    return section;
+    return this.addStandaloneSection(worksheetId, { columns });
   }
 
   /**
@@ -226,7 +234,13 @@ export class BuilderState {
   }
 
   toConfig() {
-    return JSON.parse(JSON.stringify(this.workbook));
+    const config = JSON.parse(JSON.stringify(this.workbook));
+    for (const worksheet of config.worksheets || []) {
+      worksheet.sections = (worksheet.sections || []).filter((section) => {
+        return !section.unsectioned || (section.fields || []).length > 0;
+      });
+    }
+    return config;
   }
 }
 

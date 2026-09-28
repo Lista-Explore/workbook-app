@@ -69,6 +69,22 @@ function fieldConfigFromWrapper(wrapper, column) {
   }
   if (type === "table") {
     const tableEl = wrapper.querySelector(".wb-input-table");
+    const common = {
+      ...base,
+      initialRows: wrapper.querySelectorAll(".wb-table-input-row").length || 1,
+      allowAddRows: tableEl?.dataset.allowAddRows === "true",
+    };
+    if (tableEl?.dataset.cellGrid === "true") {
+      const cells = Array.from(tableEl.querySelectorAll("tbody tr")).map((row, rowIndex) =>
+        Array.from(row.children).map((cell, columnIndex) => ({
+          id: cell.dataset.cellId || cell.dataset.columnId || `cell_${rowIndex + 1}_${columnIndex + 1}`,
+          type: cell.dataset.cellType || (cell.tagName === "TH" ? "header" : "short-text"),
+          content: cell.dataset.content || (cell.dataset.cellType === "dropdown" ? "" : cell.textContent.trim()) || "",
+          options: cell.dataset.options ? JSON.parse(cell.dataset.options) : [],
+        }))
+      );
+      return { ...common, cells };
+    }
     const columns = Array.from(wrapper.querySelectorAll(".wb-input-table thead th")).map((th, index) => ({
       id: th.dataset.columnId || `column_${index + 1}`,
       label: th.textContent.trim() || `Column ${index + 1}`,
@@ -76,12 +92,7 @@ function fieldConfigFromWrapper(wrapper, column) {
       options: th.dataset.options ? JSON.parse(th.dataset.options) : [],
       content: th.dataset.content || "",
     }));
-    return {
-      ...base,
-      columns,
-      initialRows: wrapper.querySelectorAll(".wb-table-input-row").length || 1,
-      allowAddRows: tableEl?.dataset.allowAddRows === "true",
-    };
+    return { ...common, columns };
   }
   if (type === "datalist") {
     const options = Array.from(wrapper.querySelectorAll("datalist option")).map((opt) => opt.value);
