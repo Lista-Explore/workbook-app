@@ -6,10 +6,34 @@ import { renderWorksheetList } from "./ui/worksheet-list.js";
 import { renderSectionEditor } from "./ui/section-editor.js";
 import { renderPreviewPanel } from "./ui/preview-panel.js";
 import { renderPublishPanel } from "./ui/publish-panel.js";
-import { registerAllFields } from "../../src/fields/index.js?v=20260923-rich-text";
+import { registerAllFields } from "../../src/fields/index.js?v=20260929-pdf-export-fix";
 import { domToConfig } from "../../src/core/dom-config.js";
 
 const AUTOSAVE_DELAY_MS = 400;
+
+function preserveViewport(root, callback, { preserveScroll = true } = {}) {
+  const view = root.defaultView || globalThis.window;
+  const doc = root.nodeType === Node.DOCUMENT_NODE ? root : root.ownerDocument || document;
+  const scroller = doc.scrollingElement || doc.documentElement;
+  if (!preserveScroll || !view || !scroller) return callback();
+
+  const scrollLeft = view.scrollX ?? scroller.scrollLeft;
+  const scrollTop = view.scrollY ?? scroller.scrollTop;
+  const restore = () => view.scrollTo(scrollLeft, scrollTop);
+  const restoreAfterPaint = () => {
+    restore();
+    view.requestAnimationFrame?.(() => {
+      restore();
+      view.requestAnimationFrame?.(restore);
+    });
+    view.setTimeout?.(restore, 0);
+    view.setTimeout?.(restore, 50);
+  };
+
+  return Promise.resolve()
+    .then(callback)
+    .finally(restoreAfterPaint);
+}
 
 export async function startBuilderApp(root, initialConfig) {
   registerAllFields();
@@ -74,39 +98,44 @@ export async function startBuilderApp(root, initialConfig) {
   // their own panel there would rip focus out of the field the person is
   // actively typing in.
   async function refreshDependents() {
-    scheduleAutosave();
-    await renderPreviewPanel(elements.preview, state);
-    renderPublishPanel(elements.publish, state, { onStatus: setStatus });
+    return preserveViewport(root, async () => {
+      scheduleAutosave();
+      await renderPreviewPanel(elements.preview, state);
+      renderPublishPanel(elements.publish, state, { onStatus: setStatus });
+    });
   }
 
   // Full rebuild: used for structural changes (add/remove/reorder a
   // worksheet, section, or field; switching the active worksheet) where the
   // editing panels themselves must change shape.
-  async function rerender() {
-    destroyContentEditors();
-    renderWorkbookSettingsPanel(elements.settings, state, refreshDependents);
+  async function rerender(options = {}) {
+    const preserveScroll = !options || options.preserveScroll !== false;
+    return preserveViewport(root, async () => {
+      destroyContentEditors();
+      renderWorkbookSettingsPanel(elements.settings, state, refreshDependents);
 
-    if (!activeWorksheetId || !state.workbook.worksheets.some((w) => w.id === activeWorksheetId)) {
-      activeWorksheetId = state.workbook.worksheets[0]?.id || null;
-    }
+      if (!activeWorksheetId || !state.workbook.worksheets.some((w) => w.id === activeWorksheetId)) {
+        activeWorksheetId = state.workbook.worksheets[0]?.id || null;
+      }
 
-    renderWorksheetList(elements.worksheets, state, {
-      activeWorksheetId,
-      onSelect: (id) => {
-        activeWorksheetId = id;
-        rerender();
-      },
-      onChange: rerender,
-      onRename: refreshDependents,
-    });
+      renderWorksheetList(elements.worksheets, state, {
+        activeWorksheetId,
+        onSelect: (id) => {
+          activeWorksheetId = id;
+          rerender();
+        },
+        onChange: rerender,
+        onRename: refreshDependents,
+      });
 
-    if (activeWorksheetId) {
-      renderSectionEditor(elements.sections, state, activeWorksheetId, rerender, refreshDependents);
-    } else {
-      elements.sections.innerHTML = "";
-    }
+      if (activeWorksheetId) {
+        renderSectionEditor(elements.sections, state, activeWorksheetId, rerender, refreshDependents);
+      } else {
+        elements.sections.innerHTML = "";
+      }
 
-    await refreshDependents();
+      await refreshDependents();
+    }, { preserveScroll });
   }
 
   // Click-to-arm, click-again-to-confirm — not a native confirm() dialog,
@@ -219,7 +248,7 @@ export async function startBuilderApp(root, initialConfig) {
     activeWorksheetId = state.workbook.worksheets[0]?.id || null;
   }
 
-  await rerender();
+  await rerender({ preserveScroll: false });
 
   return { state, rerender };
 }

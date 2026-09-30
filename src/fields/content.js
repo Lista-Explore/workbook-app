@@ -11,6 +11,9 @@ export function sanitizeContent(html) {
 
 const PDF_TEXT_JOIN_REPAIRS = [
   ["directlyshapes", "directly shapes"],
+  ["youcan", "you can"],
+  ["cantrain", "can train"],
+  ["contrain", "train"],
   ["yousomething", "you something"],
   ["asyou", "as you"],
   ["onlyneed", "only need"],
@@ -20,6 +23,7 @@ const PDF_TEXT_JOIN_REPAIRS = [
   ["Professionaltone", "Professional tone"],
   ["ofexperience", "of experience"],
   ["caregiving.Respond", "caregiving. Respond"],
+  ["familycaregiving", "family caregiving"],
   ["warm,forward", "warm, forward"],
 ];
 

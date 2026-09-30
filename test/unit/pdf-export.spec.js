@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { PDFDocument, StandardFonts } from "../../src/vendor/pdf-lib.esm.js";
 import { exportWorkbookPdf, wrapText, embedImageFields, contentEntries } from "../../src/pdf/pdf-export.js";
+import { importWorkbookPdf } from "../../src/pdf/pdf-import.js";
 
 function widgetRect(form, fieldName) {
   const field = form.getField(fieldName);
@@ -380,11 +381,11 @@ describe("exportWorkbookPdf — image embedding", () => {
 
     const [textEntry] = entries.filter((entry) => entry.type === "text");
     expect(textEntry.runs).toMatchObject([
-      { text: ";k lkn", bold: false, underline: false, strike: false, color: null },
-      { text: ";lkn'm", bold: true, underline: false, strike: false },
-      { text: ";lknlkn", bold: true, italic: true, underline: false, strike: false },
-      { text: ";ln;lkn", bold: true, italic: true, underline: true, strike: false },
-      { text: ";lkn", bold: true, italic: true, underline: true, strike: true },
+      { text: "; k lkn", bold: false, underline: false, strike: false, color: null },
+      { text: "; lkn'm", bold: true, underline: false, strike: false },
+      { text: "; lknlkn", bold: true, italic: true, underline: false, strike: false },
+      { text: "; ln; lkn", bold: true, italic: true, underline: true, strike: false },
+      { text: "; lkn", bold: true, italic: true, underline: true, strike: true },
       { text: "ln", bold: true, italic: true, underline: true, strike: true, color: { red: 1, green: 0, blue: 221 / 255, type: "RGB" } },
     ]);
   });
@@ -458,5 +459,110 @@ describe("exportWorkbookPdf — checklist and rich text", () => {
     expect(form.getCheckBox("tasks__opt__1").isChecked()).toBe(false);
     expect(form.getCheckBox("tasks__opt__2").isChecked()).toBe(true);
     expect(() => form.getTextField("reflection")).toThrow();
+  });
+});
+
+
+describe("exportWorkbookPdf — table and field mapping", () => {
+  const allFieldTypesConfig = {
+    id: "wb-all-types",
+    worksheets: [
+      {
+        id: "ws1",
+        sections: [
+          {
+            id: "s1",
+            fields: [
+              { id: "short", type: "short-text", label: "Short", column: 0 },
+              { id: "long", type: "long-text", label: "Long", column: 0 },
+              { id: "rich", type: "rich-text", label: "Rich", column: 0 },
+              { id: "num", type: "number", label: "Number", column: 0 },
+              { id: "email", type: "email", label: "Email", column: 0 },
+              { id: "url", type: "url", label: "URL", column: 0 },
+              { id: "tel", type: "tel", label: "Telephone", column: 0 },
+              { id: "password", type: "password", label: "Password", column: 0 },
+              { id: "dropdown", type: "dropdown", label: "Dropdown", options: ["A", "B"], column: 0 },
+              { id: "radio", type: "radio", label: "Radio", options: ["A", "B"], column: 0 },
+              { id: "checkbox", type: "checkbox", label: "Agree", column: 0 },
+              { id: "checks", type: "checkbox-group", label: "Checks", options: ["A", "B"], column: 0 },
+              { id: "tasks", type: "checklist", label: "Tasks", options: ["One", "Two"], column: 0 },
+              { id: "date", type: "date", label: "Date", column: 0 },
+              { id: "time", type: "time", label: "Time", column: 0 },
+              { id: "datetime", type: "datetime-local", label: "Datetime", column: 0 },
+              { id: "month", type: "month", label: "Month", column: 0 },
+              { id: "week", type: "week", label: "Week", column: 0 },
+              { id: "range", type: "range", label: "Range", column: 0 },
+              { id: "datalist", type: "datalist", label: "Datalist", options: ["A", "B"], column: 0 },
+              { id: "signature", type: "signature", label: "Signature", column: 0 },
+              { id: "file", type: "file", label: "File", column: 0 },
+              { id: "heading", type: "heading", label: "Heading", column: 0 },
+              { id: "instructions", type: "instructions", label: "Instructions", column: 0 },
+              { id: "statement", type: "statement", label: "Statement", column: 0 },
+              { id: "content", type: "content", html: "<p>Content</p>", column: 0 },
+              { id: "image", type: "image", src: "", alt: "Image", column: 0 },
+              {
+                id: "activity_table",
+                type: "table",
+                label: "Activity table",
+                cells: [
+                  [
+                    { id: "h_activity", type: "header", content: "Activity" },
+                    { id: "h_status", type: "header", content: "Status" },
+                  ],
+                  [
+                    { id: "activity", type: "short-text", content: "Activity" },
+                    { id: "status", type: "dropdown", options: ["Ready", "Blocked"] },
+                  ],
+                  [
+                    { id: "notes", type: "long-text", content: "Notes" },
+                    { id: "static", type: "content", content: "Static hint" },
+                  ],
+                ],
+                column: 0,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  it("exports every answer-capable question type to the expected PDF field names", async () => {
+    const bytes = await exportWorkbookPdf(allFieldTypesConfig, {
+      worksheets: {
+        ws1: {
+          activity_table: [{ activity: "Draft", status: "Ready" }, { notes: "Long note" }],
+        },
+      },
+    });
+    const pdfDoc = await PDFDocument.load(bytes);
+    const names = pdfDoc.getForm().getFields().map((field) => field.getName());
+    expect(names).toEqual(expect.arrayContaining([
+      "short", "long", "num", "email", "url", "tel", "password", "dropdown", "radio", "checkbox",
+      "checks__opt__0", "checks__opt__1", "tasks__opt__0", "tasks__opt__1", "date", "time", "datetime", "month", "week", "range", "datalist", "signature",
+      "activity_table__cell__activity__row__0", "activity_table__cell__status__row__0", "activity_table__cell__notes__row__1",
+    ]));
+    expect(names).not.toContain("file");
+    expect(names).not.toContain("heading");
+    expect(names).not.toContain("instructions");
+    expect(names).not.toContain("statement");
+    expect(names).not.toContain("content");
+    expect(names).not.toContain("image");
+    expect(names).not.toContain("rich");
+  });
+
+  it("imports filled table cell PDF fields back into table row values", async () => {
+    const bytes = await exportWorkbookPdf(allFieldTypesConfig, {});
+    const pdfDoc = await PDFDocument.load(bytes);
+    const form = pdfDoc.getForm();
+    form.getTextField("activity_table__cell__activity__row__0").setText("Draft plan");
+    form.getDropdown("activity_table__cell__status__row__0").select("Blocked");
+    form.getTextField("activity_table__cell__notes__row__1").setText("Needs review");
+    const imported = await importWorkbookPdf(allFieldTypesConfig, await pdfDoc.save());
+    expect(imported.data.worksheets.ws1.activity_table).toEqual([
+      { activity: "Draft plan", status: "Blocked" },
+      { notes: "Needs review" },
+    ]);
+    expect(imported.unmatchedInPdf).toEqual([]);
   });
 });

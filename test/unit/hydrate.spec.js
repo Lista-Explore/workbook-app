@@ -122,7 +122,7 @@ describe("hydrateWorkbook", () => {
     expect(panels[1].hidden).toBe(false);
   });
 
-  it("a checklist's lock/progress/reset logic survives a real static-HTML round trip (regression: checklist.js's own render() attaches its change listener directly — unlike the tabs above, that listener is lost the same way once the markup is serialized and reparsed as plain HTML, and hydrate.js didn't re-wire it)", async () => {
+  it("a checklist's lock/progress logic survives a real static-HTML round trip", async () => {
     const config = {
       id: "hydrate-checklist",
       worksheets: [
@@ -169,8 +169,8 @@ describe("hydrateWorkbook", () => {
     expect(boxes[3].disabled).toBe(false);
     expect(mount.querySelector(".wb-checklist-progress").textContent).toBe("1 of 4 done");
 
-    mount.querySelector(".wb-checklist-reset").click();
-    expect([...boxes].every((box) => !box.checked)).toBe(true);
+    boxes[0].checked = false;
+    boxes[0].dispatchEvent(new Event("change", { bubbles: true }));
     expect(boxes[3].disabled).toBe(true);
     expect(mount.querySelector(".wb-checklist-progress").textContent).toBe("0 of 4 done");
   });

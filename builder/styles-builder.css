@@ -186,6 +186,14 @@ button:hover {
 
 /* Primary actions */
 
+.builder-add-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75em;
+  align-items: center;
+  margin-top: 1em;
+}
+
 .builder-add-section-btn,
 .builder-add-field-btn,
 #builder-download-pdf-btn {
@@ -709,7 +717,12 @@ input.builder-section-title-input:focus {
 .builder-content-expand-body { max-height: calc(92vh - 6em); overflow: visible; }
 
 .builder-checklist-option-row { flex-wrap: wrap; }
-.builder-checklist-option-row > .builder-text-editor { flex: 1 1 100%; min-width: 0; }
+.builder-checklist-option-row > .builder-text-editor {
+  display: flex;
+  flex: 1 1 100%;
+  flex-direction: column;
+  min-width: 0;
+}
 .builder-checklist-option-row .wb-rich-text-toolbar { flex-wrap: wrap; }
 /* Reduce padding inside rich text editor for checklist items. The global
    .wb-rich-text-input has 0.7em of padding which is too much for the

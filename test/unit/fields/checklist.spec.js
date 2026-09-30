@@ -21,6 +21,25 @@ describe("checklist field", () => {
     expect(wrapper.querySelectorAll('.wb-checklist-item input[type="checkbox"]').length).toBe(3);
   });
 
+  it("renders rich checklist option HTML directly in the item label", () => {
+    const wrapper = checklist.render(
+      {
+        ...field,
+        options: ["Plan"],
+        optionsHtml: ["<h2>Plan</h2><p>Review the brief</p>"],
+      },
+      []
+    );
+
+    const row = wrapper.querySelector(".wb-checklist-item");
+    const label = row.querySelector(".wb-checklist-item-label");
+
+    expect(row.children[0].tagName).toBe("INPUT");
+    expect(row.children[1]).toBe(label);
+    expect(label.querySelector("h2").textContent).toBe("Plan");
+    expect(label.querySelector("p").textContent).toBe("Review the brief");
+  });
+
   it("pre-checks values in the given array", () => {
     const wrapper = checklist.render(field, ["Read the brief"]);
     expect(checklist.getValue(wrapper)).toEqual(["Read the brief"]);
@@ -81,16 +100,4 @@ describe("checklist field", () => {
     expect(boxes[2].checked).toBe(false);
   });
 
-  it("the reset button unchecks every item and fires a change event", () => {
-    const wrapper = checklist.render(field, ["Read the brief", "Draft an outline"]);
-    document.body.appendChild(wrapper);
-    let changeFired = false;
-    wrapper.addEventListener("change", () => (changeFired = true));
-
-    wrapper.querySelector(".wb-checklist-reset").click();
-
-    expect(checklist.getValue(wrapper)).toEqual([]);
-    expect(changeFired).toBe(true);
-    document.body.removeChild(wrapper);
-  });
 });

@@ -31,9 +31,10 @@ test('standalone questions can mix full-width and two-column layouts without a s
   const editor = page.locator('#builder-section-editor');
   let standaloneBlocks = editor.locator(':scope > .builder-standalone-block');
   const firstBlock = standaloneBlocks.last();
+  await expect(editor.getByRole('button', { name: '+ Start new no-section layout', exact: true })).toBeVisible();
   await firstBlock.getByRole('button', { name: '+ Add question', exact: true }).click();
   await firstBlock.locator('.builder-field-label-input').last().fill('Full width question');
-  await firstBlock.getByRole('button', { name: '+ Start new no-section layout', exact: true }).click();
+  await editor.getByRole('button', { name: '+ Start new no-section layout', exact: true }).click();
 
   standaloneBlocks = editor.locator(':scope > .builder-standalone-block');
   await expect(standaloneBlocks).toHaveCount(2);

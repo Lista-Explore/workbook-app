@@ -44,5 +44,7 @@ describe("Content", () => {
       .toBe("They range from basic prompts that only need a task and use blocks the prompt uses, name the gaps.");
     expect(repairPdfTextSpacing("8 years ofexperience in schedulingand support. Professionaltone. caregiving.Respond warm,forward-looking."))
       .toBe("8 years of experience in scheduling and support. Professional tone. caregiving. Respond warm, forward-looking.");
+    expect(repairPdfTextSpacing("The checklist youcan keep helps you contrain your eye for familycaregiving examples."))
+      .toBe("The checklist you can keep helps you train your eye for family caregiving examples.");
   });
 });

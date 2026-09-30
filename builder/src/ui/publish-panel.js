@@ -1,5 +1,5 @@
 import { createPreviewStorage } from "../../../src/core/storage.js";
-import { exportWorkbookPdf } from "../../../src/pdf/pdf-export.js";
+import { exportWorkbookPdf } from "../../../src/pdf/pdf-export.js?v=20260929-pdf-export-fix";
 import { renderWorkbook } from "../../../src/core/renderer.js";
 import { registerAllFields } from "../../../src/fields/index.js";
 

@@ -20,6 +20,8 @@ test('builder supports checklist progress and rich text answers through preview,
   const secondItem = section.locator('.builder-checklist-item-input').nth(1);
   await secondItem.press('ControlOrMeta+a');
   await section.locator('.builder-checklist-option-row').nth(1).getByRole('button', { name: 'Bold', exact: true }).click();
+  await expect(section.locator('.builder-checklist-option-row').first().locator(':scope > .builder-text-editor')).toHaveCount(1);
+  await expect(section.locator('.builder-checklist-option-row').first().locator(':scope > .wb-field')).toHaveCount(0);
 
   await section.locator('.builder-add-field-type-select').last().selectOption('rich-text');
   await section.locator('.builder-add-field-btn').last().click();
@@ -33,7 +35,9 @@ test('builder supports checklist progress and rich text answers through preview,
   await expect(preview.locator('.wb-checklist-progress')).toHaveText('0 of 2 done');
   await preview.locator('.wb-checklist-item input').first().check();
   await expect(preview.locator('.wb-checklist-progress')).toHaveText('1 of 2 done');
-  await expect(preview.locator('.wb-checklist-meter')).toHaveJSProperty('value', 1);
+  await expect(preview.locator('.wb-checklist-meter')).toHaveCount(0);
+  await expect(preview.locator('.wb-checklist-reset')).toHaveCount(0);
+  await expect(preview.locator('.wb-checklist-item-content')).toHaveCount(0);
   await expect(preview.locator('.wb-checklist-item label').first().locator('h2').first()).toContainText('Plan');
   await expect(preview.locator('.wb-checklist-item label').nth(1).locator('b,strong').first()).toContainText('Build');
 

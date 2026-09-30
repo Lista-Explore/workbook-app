@@ -74,14 +74,27 @@
 /* Sections & layout */
 
 .wb-section {
-  padding: 1.25em 1.4em;
   margin-bottom: 1.25em;
   background: var(--wb-surface);
+}
+
+details.wb-section:not([open]) {
+  margin-bottom: 0;
+  background: transparent;
+}
+
+details.wb-section:not([open]) > .wb-section-title {
+  margin-bottom: 0;
+}
+
+details.wb-section:not([open]) > .wb-section-fields {
+  display: none;
 }
 
 .wb-section-fields {
   display: flex;
   flex-direction: column;
+  padding: 1.25em 1.4em;
 }
 
 .wb-section-fields[data-columns="2"] {
@@ -325,54 +338,50 @@
   accent-color: var(--wb-accent);
 }
 
-/* Progress checklist — deliberately grayscale only (black/gray/white),
-   no accent color, so it never clashes with whatever brand color the host
-   page applies elsewhere. */
-
 .wb-checklist-progress {
-  font-size: 0.8em;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  margin: 0.15em 0 0.55em;
+  font-size: 0.86em;
+  font-weight: 500;
   color: var(--wb-muted);
 }
 
 .wb-checklist {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--wb-border-strong);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--wb-surface);
+  display: grid;
+  gap: 0.48em;
 }
 
 .wb-checklist-item {
-  display: flex;
-  align-items: center;
-  transition: background-color 0.15s ease;
-  padding: 0px 10px;
-}
-
-.wb-checklist-item:hover {
-  background: var(--wb-bg);
-}
-
-.wb-checklist-item + .wb-checklist-item {
-  border-top: 1px solid var(--wb-border);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.55em;
+  padding: 0.22em 0;
 }
 
 .wb-checklist-item input[type="checkbox"] {
-  width: 19px;
-  height: 19px;
-  flex-shrink: 0;
+  width: 17px;
+  height: 17px;
+  margin: 0.16em 0 0;
   accent-color: var(--wb-accent);
 }
 
-.wb-checklist-item label {
-  flex: 1;
+.wb-checklist-item-label {
+  min-width: 0;
+  line-height: 1.45;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
 }
 
-.wb-checklist-item input:checked + label {
+.wb-checklist-item-label > :first-child {
+  margin-top: 0;
+}
+
+.wb-checklist-item-label > :last-child {
+  margin-bottom: 0;
+}
+
+.wb-checklist-item input:checked + .wb-checklist-item-label {
   color: var(--wb-muted);
   text-decoration: line-through;
 }
@@ -381,25 +390,8 @@
   cursor: not-allowed;
 }
 
-.wb-checklist-item input:disabled + label {
+.wb-checklist-item input:disabled + .wb-checklist-item-label {
   color: var(--wb-muted);
-}
-
-.wb-checklist-reset {
-  align-self: flex-end;
-  margin-top: 0.5em;
-  font: inherit;
-  font-size: 0.85em;
-  padding: 0.3em 0.1em;
-  border: none;
-  background: none;
-  color: var(--wb-muted);
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.wb-checklist-reset:hover {
-  color: var(--wb-text);
 }
 
 .wb-signature-input {
@@ -571,8 +563,3 @@
   margin-top: 0;
   margin-bottom: 0.55em;
 }
-
-.wb-checklist-meter { display: block; width: 100%; height: 10px; margin: 0 0 12px; accent-color: #4b5563; }
-.wb-checklist-item label { min-width: 0; overflow-wrap: anywhere; white-space: pre-line; }
-.wb-checklist-item label > :first-child { margin-top: 0; }
-.wb-checklist-item label > :last-child { margin-bottom: 0; padding: 0px 0px 0px 20px;}

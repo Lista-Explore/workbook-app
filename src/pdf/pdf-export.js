@@ -1,4 +1,4 @@
-import { sanitizeContent } from "../fields/content.js";
+import { repairContentHtmlSpacing, repairPdfTextSpacing, sanitizeContent } from "../fields/content.js";
 import { PDFDocument, rgb } from "../vendor/pdf-lib.esm.js";
 import fontkit from "../vendor/fontkit.esm.js";
 import { DISPLAY_ONLY_FIELD_TYPES } from "../fields/index.js";
@@ -15,6 +15,10 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function pdfText(value) {
+  return repairPdfTextSpacing(String(value || ""));
 }
 
 const PAGE_WIDTH = 612;
@@ -59,7 +63,7 @@ function drawCollapsibleBanner({ page, text, font, x, y, width, height }) {
     page.drawRectangle({ x: x + i * stepWidth, y: y - height, width: stepWidth + 0.5, height, color });
   }
   const size = 12;
-  page.drawText(text, { x: x + 12, y: y - height / 2 - size / 2 + 3, size, font, color: COLLAPSIBLE_BANNER_TEXT_COLOR });
+  page.drawText(pdfText(text), { x: x + 12, y: y - height / 2 - size / 2 + 3, size, font, color: COLLAPSIBLE_BANNER_TEXT_COLOR });
 }
 
 // Google's own font CDN — permanent, CORS-enabled (confirmed:
@@ -201,7 +205,7 @@ function alignedContentX(x, availableWidth, renderedWidth, align) {
  * whatever is in the next column, since drawText() never wraps on its own.
  */
 export function wrapText(text, font, size, maxWidth) {
-  const words = String(text || "").split(/\s+/).filter(Boolean);
+  const words = pdfText(text).split(/\s+/).filter(Boolean);
   if (words.length === 0) return [""];
 
   const lines = [];
@@ -221,17 +225,105 @@ export function wrapText(text, font, size, maxWidth) {
 
 const LINE_HEIGHT = 13;
 function checklistItemContent(field, index) {
-  const text = field.options[index] ?? "";
+  const text = pdfText(field.options[index] ?? "");
   const html = field.optionsHtml?.[index] || escapeHtml(text).replace(/\n/g, "\u003cbr\u003e");
   return { id: `${field.id}-item-${index}`, html };
 }
 
-function checklistRowHeights(field, font, boldFont, width) {
-  return (field.options || []).map((_, index) => Math.max(22,
-    contentHeight(checklistItemContent(field, index), new Map(), { font, boldFont: boldFont || font }, width - 36, new Map()) + 8));
+function checklistItemTextEntry(field, index) {
+  const host = document.createElement("div");
+  host.innerHTML = sanitizeContent(checklistItemContent(field, index).html);
+  const runs = [];
+  host.childNodes.forEach((node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = pdfText(node.textContent.replace(/\s+/g, " "));
+      if (text) runs.push({ text, bold: false, italic: false, underline: false, strike: false, size: 10, color: null });
+      return;
+    }
+    runs.push(...collectTextRuns(node, styleForElement(node, {})).filter((run) => run.text !== ""));
+    if (node.nodeType === Node.ELEMENT_NODE && BLOCK_TAGS.has(node.tagName.toLowerCase())) {
+      runs.push({ text: "\n", bold: false, italic: false, underline: false, strike: false, size: 10, color: null });
+    }
+  });
+  while (runs.at(-1)?.text === "\n") runs.pop();
+  return { type: "text", runs: runs.length ? runs : [{ text: pdfText(field.options[index] || ""), bold: false, italic: false, underline: false, strike: false, size: 10, color: null }], align: "left" };
 }
 
-function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFont) {
+function checklistRowHeights(field, font, boldFont, width) {
+  const fonts = { font, boldFont: boldFont || font };
+  return (field.options || []).map((_, index) => Math.max(24, richTextHeight(checklistItemTextEntry(field, index), fonts, width - 36) + 8));
+}
+
+
+const TABLE_INPUT_TYPES = new Set(["short-text", "long-text", "number", "dropdown"]);
+const TABLE_STATIC_TYPES = new Set(["header", "content"]);
+
+function tableCellFieldName(tableId, cellId, rowIndex) {
+  return `${tableId}__cell__${cellId}__row__${rowIndex}`;
+}
+
+function normalizeTableCell(cell, rowIndex, columnIndex) {
+  const type = cell?.type || (rowIndex === 0 ? "header" : "content");
+  return {
+    id: cell?.id || `cell_${rowIndex + 1}_${columnIndex + 1}`,
+    type,
+    content: cell?.content || "",
+    options: Array.isArray(cell?.options) ? cell.options : [],
+  };
+}
+
+function cellsFromLegacyTableColumns(field) {
+  const columns = Array.isArray(field.columns) && field.columns.length ? field.columns : [];
+  const rowCount = Math.max(Number(field.initialRows) || 1, 1) + 1;
+  return Array.from({ length: rowCount }, (_, rowIndex) =>
+    columns.map((column, columnIndex) => {
+      if (rowIndex === 0) {
+        return normalizeTableCell({ id: `header_${column.id || columnIndex + 1}`, type: "header", content: column.label || `Column ${columnIndex + 1}` }, rowIndex, columnIndex);
+      }
+      return normalizeTableCell({ id: rowIndex === 1 ? column.id || `column_${columnIndex + 1}` : `cell_${rowIndex + 1}_${columnIndex + 1}`, type: column.type || "short-text", content: column.content || "", options: column.options || [] }, rowIndex, columnIndex);
+    })
+  );
+}
+
+function tableCells(field) {
+  const source = Array.isArray(field.cells) && field.cells.length ? field.cells : cellsFromLegacyTableColumns(field);
+  if (!source.length) return [];
+  const columnCount = Math.max(...source.map((row) => (Array.isArray(row) ? row.length : 0)), 1);
+  return source.map((row, rowIndex) =>
+    Array.from({ length: columnCount }, (_, columnIndex) => normalizeTableCell(Array.isArray(row) ? row[columnIndex] : null, rowIndex, columnIndex))
+  );
+}
+
+function tableInputRowIndices(cells) {
+  const indices = [];
+  cells.forEach((row, rowIndex) => {
+    if (row.some((cell) => TABLE_INPUT_TYPES.has(cell.type))) indices.push(rowIndex);
+  });
+  return indices;
+}
+
+function tableRowHeights(field, fonts, width) {
+  const cells = tableCells(field);
+  if (!cells.length) return [];
+  const columnCount = Math.max(1, ...cells.map((row) => row.length));
+  const cellWidth = width / columnCount;
+  return cells.map((row) => {
+    const heights = row.map((cell) => {
+      if (cell.type === "long-text") return 52;
+      if (TABLE_INPUT_TYPES.has(cell.type)) return 28;
+      const entry = { runs: [{ text: pdfText(cell.content || ""), bold: cell.type === "header", size: 9 }], align: "left" };
+      return Math.max(30, richTextHeight(entry, fonts, cellWidth - 10) + 10);
+    });
+    return Math.max(30, ...heights);
+  });
+}
+
+function tableFieldHeight(field, fonts, width) {
+  const labelLines = wrapText(field.label, fonts.boldFont || fonts.font, 10, width).length;
+  return (labelLines - 1) * LINE_HEIGHT + 4 + tableRowHeights(field, fonts, width).reduce((sum, height) => sum + height, 0) + 8;
+}
+
+function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFont, value) {
   if (field.type === "image") {
     const image = embeddedImages?.get(field.id);
     if (image) {
@@ -248,7 +340,15 @@ function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFon
   if (field.type === "rich-text") {
     const labelLines = wrapText(field.label, boldFont || font, 10, width).length;
     const labelHeight = (labelLines - 1) * LINE_HEIGHT;
-    return 110 + labelHeight;
+    if (value) return labelHeight + contentHeight({ ...field, type: "content", html: String(value) }, new Map(), { font, boldFont: boldFont || font }, width, new Map()) + 10;
+    return 64 + labelHeight;
+  }
+  if (field.type === "file") {
+    const labelLines = wrapText(field.label, boldFont || font, 10, width).length;
+    return labelLines * LINE_HEIGHT + 4;
+  }
+  if (field.type === "table") {
+    return tableFieldHeight(field, { font, boldFont: boldFont || font }, width);
   }
   if (field.type === "heading" || field.type === "instructions" || field.type === "statement") {
     const labelFont = field.type === "heading" ? boldFont || font : font;
@@ -268,16 +368,6 @@ function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFon
     return 20 + count * 16 + labelHeight;
   }
   if (field.type === "checklist") {
-    // Must match the space the "checklist" case in drawField() actually
-    // consumes: the progress line/bar (20), the card's own top/bottom
-    // padding (8 each), and each row's height (22).
-    // The checklist PDF card reserves space for a progress bar (20) and top/bottom
-    // padding (8 each). In the original implementation the progress bar was
-    // drawn, but we now omit it. The remaining fixed height is therefore
-    // 20 + 8 + 8 = 36.
-    // With the progress bar omitted, only the top and bottom padding of the
-    // card (8px each) remains, totaling 16px.  This is added to the sum of
-    // row heights and the label height.
     return 16 + checklistRowHeights(field, font, boldFont, width).reduce((sum, height) => sum + height, 0) + labelHeight;
   }
   return 40 + labelHeight;
@@ -362,7 +452,7 @@ function textAlignForNode(node) {
 
 function collectTextRuns(node, inherited = {}) {
   if (node.nodeType === Node.TEXT_NODE) {
-    const text = node.textContent.replace(/\s+/g, " ");
+    const text = pdfText(node.textContent.replace(/\s+/g, " "));
     return text ? [{ text, ...inherited }] : [];
   }
   if (node.nodeType !== Node.ELEMENT_NODE) return [];
@@ -370,7 +460,13 @@ function collectTextRuns(node, inherited = {}) {
   if (tag === "br") return [{ text: "\n", ...inherited }];
   const style = styleForElement(node, inherited);
   const runs = [];
-  node.childNodes.forEach((child) => runs.push(...collectTextRuns(child, style)));
+  node.childNodes.forEach((child) => {
+    runs.push(...collectTextRuns(child, style));
+    if (child.nodeType === Node.ELEMENT_NODE && BLOCK_TAGS.has(child.tagName.toLowerCase())) {
+      runs.push({ text: "\n", ...style });
+    }
+  });
+  while (runs.at(-1)?.text === "\n") runs.pop();
   if (tag === "td" || tag === "th") runs.push({ text: "  ", ...style });
   return runs;
 }
@@ -383,7 +479,7 @@ function textEntryForNode(node, { prefix = "" } = {}) {
   }
   const normalizedRuns = [];
   for (const run of runs) {
-    const text = run.text.replace(/\s+/g, " ");
+    const text = pdfText(run.text.replace(/\s+/g, " "));
     if (!text) continue;
     normalizedRuns.push({ ...run, text });
   }
@@ -427,13 +523,13 @@ function imageLayoutForNode(img) {
 
 export function contentEntries(field) {
   const host = document.createElement("div");
-  host.innerHTML = sanitizeContent(field.html);
+  host.innerHTML = repairContentHtmlSpacing(field.html);
   const entries = [];
   let imageIndex = 0;
 
   function visit(node) {
     if (node.nodeType === Node.TEXT_NODE) {
-      const text = node.textContent.trim();
+      const text = pdfText(node.textContent.trim());
       if (text) entries.push({ type: "text", runs: [{ text, bold: false, italic: false, underline: false, strike: false, size: 10, color: null }], align: "left" });
       return;
     }
@@ -503,7 +599,7 @@ export function contentEntries(field) {
   }
 
   const children = Array.from(host.childNodes);
-  if (children.length === 0 && host.textContent.trim()) entries.push({ type: "text", runs: [{ text: host.textContent.trim(), bold: false, italic: false, underline: false, strike: false, size: 10, color: null }], align: "left" });
+  if (children.length === 0 && host.textContent.trim()) entries.push({ type: "text", runs: [{ text: pdfText(host.textContent.trim()), bold: false, italic: false, underline: false, strike: false, size: 10, color: null }], align: "left" });
   children.forEach(visit);
   return entries;
 }
@@ -557,19 +653,20 @@ function ruleHeight() {
 function tableLayout(entry, fonts, width) {
   const rows = entry.rows || [];
   const columnCount = Math.max(1, ...rows.map((row) => row.length));
-  const cellPadding = 5;
+  const cellPadding = 8;
   const cellWidth = width / columnCount;
   const rowLayouts = rows.map((row) => {
     const cells = Array.from({ length: columnCount }, (_, index) => {
       const cell = row[index] || { runs: [] };
       const runs = (cell.runs || []).map((run) => ({ ...run, bold: cell.header || run.bold }));
       const lines = layoutRichText(runs, fonts, cellWidth - cellPadding * 2);
-      const height = Math.max(18, lines.reduce((total, line) => total + Math.max(LINE_HEIGHT, ...line.runs.map((run) => (run.size || 10) + 3)), 0) + cellPadding * 2);
+      const textHeight = lines.reduce((total, line) => total + Math.max(LINE_HEIGHT, ...line.runs.map((run) => (run.size || 10) + 3)), 0);
+      const height = Math.max(28, textHeight + cellPadding * 2 + 4);
       return { ...cell, runs, lines, height };
     });
     return { cells, height: Math.max(...cells.map((cell) => cell.height)) };
   });
-  return { columnCount, cellPadding, cellWidth, rowLayouts, height: rowLayouts.reduce((total, row) => total + row.height, 0) + GAP };
+  return { columnCount, cellPadding, cellWidth, rowLayouts, height: rowLayouts.reduce((total, row) => total + row.height, 0) + GAP * 3 };
 }
 
 function drawRichText({ page, entry, fonts, x, y, width }) {
@@ -584,7 +681,7 @@ function drawRichText({ page, entry, fonts, x, y, width }) {
       const text = run.text;
       const textWidth = font.widthOfTextAtSize(text, size);
       if (text) {
-        page.drawText(text, { x: cursorX, y: cursorY, size, font, color: runColor(run) });
+        page.drawText(pdfText(text), { x: cursorX, y: cursorY, size, font, color: runColor(run) });
         if (run.underline) {
           page.drawLine({ start: { x: cursorX, y: cursorY - 1.5 }, end: { x: cursorX + textWidth, y: cursorY - 1.5 }, thickness: 0.6, color: runColor(run) });
         }
@@ -630,7 +727,7 @@ function drawTable({ page, entry, fonts, x, y, width }) {
         page.drawRectangle({ x: cellX, y: rowBottom, width: layout.cellWidth, height: row.height, color: headerColor });
       }
       page.drawRectangle({ x: cellX, y: rowBottom, width: layout.cellWidth, height: row.height, borderColor: gridColor, borderWidth: 0.6 });
-      let textY = cursorY - layout.cellPadding - 10;
+      let textY = cursorY - layout.cellPadding - 9;
       cell.lines.forEach((line) => {
         let textX = cellX + layout.cellPadding;
         const lineHeight = Math.max(LINE_HEIGHT, ...line.runs.map((run) => (run.size || 10) + 3));
@@ -639,7 +736,7 @@ function drawTable({ page, entry, fonts, x, y, width }) {
           const size = run.size || 10;
           const text = run.text;
           if (text) {
-            page.drawText(text, { x: textX, y: textY, size, font, color: runColor(run) });
+            page.drawText(pdfText(text), { x: textX, y: textY, size, font, color: runColor(run) });
             textX += font.widthOfTextAtSize(text, size);
           }
         });
@@ -685,6 +782,62 @@ function drawContent({ page, field, embeddedImages, imageErrors, fonts, x, y, wi
   }
 }
 
+
+function drawTableField({ form, font, boldFont, page, field, value, x, y, width }) {
+  const fonts = { font, boldFont };
+  const labelBottomY = drawFieldLabel({ page, field, boldFont, x, y, width });
+  let cursorY = labelBottomY - 4;
+  const cells = tableCells(field);
+  if (!cells.length) return;
+  const rowHeights = tableRowHeights(field, fonts, width);
+  const columnCount = Math.max(1, ...cells.map((row) => row.length));
+  const cellWidth = width / columnCount;
+  const gridColor = rgb(0.72, 0.72, 0.72);
+  const headerColor = rgb(0.94, 0.95, 0.96);
+  const values = Array.isArray(value) ? value : [];
+  let valueRowIndex = 0;
+
+  cells.forEach((row, rowIndex) => {
+    const rowHeight = rowHeights[rowIndex] || 24;
+    const rowBottom = cursorY - rowHeight;
+    const isInputRow = row.some((cell) => TABLE_INPUT_TYPES.has(cell.type));
+    const rowValue = isInputRow ? values[valueRowIndex++] || {} : {};
+
+    row.forEach((cell, columnIndex) => {
+      const cellX = x + columnIndex * cellWidth;
+      if (cell.type === "header") page.drawRectangle({ x: cellX, y: rowBottom, width: cellWidth, height: rowHeight, color: headerColor });
+      page.drawRectangle({ x: cellX, y: rowBottom, width: cellWidth, height: rowHeight, borderColor: gridColor, borderWidth: 0.6 });
+
+      const innerX = cellX + 4;
+      const innerWidth = Math.max(8, cellWidth - 8);
+      if (TABLE_STATIC_TYPES.has(cell.type)) {
+        const entry = { runs: [{ text: pdfText(cell.content || ""), bold: cell.type === "header", size: 9 }], align: "left" };
+        drawRichText({ page, entry, fonts, x: innerX, y: cursorY - 10, width: innerWidth });
+        return;
+      }
+
+      const fieldName = tableCellFieldName(field.id, cell.id, valueRowIndex - 1);
+      const cellValue = rowValue[cell.id];
+      const widgetHeight = cell.type === "long-text" ? Math.max(28, rowHeight - 10) : 18;
+      const widgetY = cell.type === "long-text" ? rowBottom + 5 : cursorY - 5 - widgetHeight;
+      if (cell.type === "dropdown") {
+        const dd = form.createDropdown(fieldName);
+        dd.addOptions(cell.options || []);
+        if (cellValue) dd.select(String(cellValue));
+        dd.addToPage(page, { x: innerX, y: widgetY, width: innerWidth, height: widgetHeight, font });
+        dd.setFontSize(9);
+        return;
+      }
+      const tf = form.createTextField(fieldName);
+      if (cell.type === "long-text") tf.enableMultiline();
+      if (cellValue != null) tf.setText(String(cellValue));
+      tf.addToPage(page, { x: innerX, y: widgetY, width: innerWidth, height: widgetHeight, font, borderWidth: 0.5 });
+      tf.setFontSize(9);
+    });
+    cursorY = rowBottom;
+  });
+}
+
 function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
   const labelBottomY = drawFieldLabel({ page, field, boldFont, x, y, width });
   const widgetY = labelBottomY - 4;
@@ -712,6 +865,11 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
       // little text in it can render enormous. Match the label's size
       // instead of leaving it to the viewer's guess.
       tf.setFontSize(10);
+      return;
+    }
+
+    case "table": {
+      drawTableField({ form, font, boldFont, page, field, value, x, y, width });
       return;
     }
 
@@ -746,7 +904,7 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
       let optionY = widgetY;
       for (const option of field.options || []) {
         rg.addOptionToPage(option, page, { x, y: optionY - 12, width: 12, height: 12 });
-        page.drawText(option, { x: x + 18, y: optionY - 11, size: 9, font });
+        page.drawText(pdfText(option), { x: x + 18, y: optionY - 11, size: 9, font });
         optionY -= 16;
       }
       if (value) rg.select(value);
@@ -760,76 +918,29 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
         const cb = form.createCheckBox(`${field.id}__opt__${index}`);
         cb.addToPage(page, { x, y: optionY - 12, width: 12, height: 12 });
         if (selected.has(option)) cb.check();
-        page.drawText(option, { x: x + 18, y: optionY - 11, size: 9, font });
+        page.drawText(pdfText(option), { x: x + 18, y: optionY - 11, size: 9, font });
         optionY -= 16;
       });
       return;
     }
 
     case "checklist": {
-      // The grayscale "card" look this has on screen — a bordered list,
-      // a static "X of N done" count, and struck-through checked items —
-      // reproduced here so the PDF matches, not just a bare checkbox list
-      // like checkbox-group. Interactivity (re-checking, the reset
-      // button) can't exist in a PDF, so this only reflects whatever was
-      // already checked at export time.
       const options = field.options || [];
       const selected = new Set(Array.isArray(value) ? value : []);
       const doneCount = options.filter((option) => selected.has(option)).length;
       const mutedColor = rgb(0.42, 0.45, 0.5);
-      const gridColor = rgb(0.82, 0.84, 0.87);
-
-      // The progress bar and text are omitted in the PDF output for checklist
-      // fields, as they serve only a UI role in the runtime preview. The
-      // layout calculations still reserve the same vertical space to keep
-      // the card alignment consistent with the on‑screen representation.
-
-      const cardPad = 8;
-      // ROW_HEIGHT must leave real clearance below the checkbox/text (which
-      // sit near the TOP of each row) before the next row's divider line —
-      // the previous values (row height 18, checkbox/text ~19-20 below the
-      // row's own top) put the divider line inside the checkbox and
-      // crossing straight through the text above it.
       const rowHeights = checklistRowHeights(field, font, boldFont, width);
-      // In the PDF version we no longer render a progress bar; the card
-      // therefore starts directly at the widget baseline.
-      const cardTopY = widgetY;
-      const cardHeight = rowHeights.reduce((sum, height) => sum + height, 0) + cardPad * 2;
-      const cardBottomY = cardTopY - cardHeight;
 
-      page.drawRectangle({
-        x,
-        y: cardBottomY,
-        width,
-        height: cardHeight,
-        borderColor: gridColor,
-        borderWidth: 1,
-      });
+      page.drawText(`${doneCount} of ${options.length} done`, { x, y: widgetY - 10, size: 8.5, font, color: mutedColor });
 
-      let rowTopY = cardTopY - cardPad;
+      let rowTopY = widgetY - 20;
       options.forEach((option, index) => {
-        const isChecked = selected.has(option);
         const cb = form.createCheckBox(`${field.id}__opt__${index}`);
-        cb.addToPage(page, { x: x + 8, y: rowTopY - 16, width: 12, height: 12 });
-        if (isChecked) cb.check();
-
-        // No strikethrough here: it's fixed artwork drawn once at export
-        // time, but the checkbox right next to it is a real, live,
-        // interactive PDF form field — someone can check/uncheck it inside
-        // the PDF itself, and that drawn line can never follow along. A
-        // static decoration that visibly desyncs from the interactive
-        // field beside it is worse than just leaving it off.
-        const textX = x + 28;
-        const textY = rowTopY - 13;
-        drawContent({ page, field: checklistItemContent(field, index), embeddedImages: new Map(), imageErrors: new Map(), fonts: { font, boldFont }, x: textX, y: textY, width: width - 36 });
-        if (index > 0) {
-          page.drawLine({
-            start: { x, y: rowTopY },
-            end: { x: x + width, y: rowTopY },
-            thickness: 0.5,
-            color: gridColor,
-          });
-        }
+        cb.addToPage(page, { x, y: rowTopY - 14, width: 12, height: 12 });
+        if (selected.has(option)) cb.check();
+        const textX = x + 20;
+        const textY = rowTopY - 12;
+        drawRichText({ page, entry: checklistItemTextEntry(field, index), fonts: { font, boldFont }, x: textX, y: textY, width: width - 36 });
         rowTopY -= rowHeights[index];
       });
       return;
@@ -859,8 +970,8 @@ function drawFieldOrPlaceholder({ form, font, boldFont, page, field, value, x, y
     if (image) {
       const { width: w, height: h } = scaledImageSize(image, width);
       page.drawImage(image, { x, y: y - h, width: w, height: h });
-      if (field.caption) {
-        page.drawText(field.caption, { x, y: y - h - 12, size: 8, font, color: rgb(0.4, 0.4, 0.4) });
+    if (field.caption) {
+      page.drawText(pdfText(field.caption), { x, y: y - h - 12, size: 8, font, color: rgb(0.4, 0.4, 0.4) });
       }
       return;
     }
@@ -908,7 +1019,7 @@ export async function exportWorkbookPdf(config, data) {
 
   if (config.title) {
     ensureSpace(24);
-    page.drawText(config.title, { x: MARGIN, y, size: 18, font: boldFont });
+    page.drawText(pdfText(config.title), { x: MARGIN, y, size: 18, font: boldFont });
     y -= 30;
   }
 
@@ -925,37 +1036,27 @@ export async function exportWorkbookPdf(config, data) {
 
     if (worksheet.title) {
       ensureSpace(22);
-      page.drawText(worksheet.title, { x: MARGIN, y, size: 14, font: boldFont });
+      page.drawText(pdfText(worksheet.title), { x: MARGIN, y, size: 14, font: boldFont });
       y -= 24;
     }
 
     const wsValues = worksheetsData[worksheet.id] || {};
 
     function drawPagedChecklist(field, value, x, width) {
-      // PDF export uses a light gray grid color for checklist card borders and
-      // divider lines. The same color is used in the screen rendering
-      // implementation, but in the PDF version the variable was previously
-      // defined inside a different switch case, making it inaccessible to
-      // this helper. Defining it here ensures the variable is available
-      // for all subsequent draws.
-      const gridColor = rgb(0.82, 0.84, 0.87);
       const labelBottomY = drawFieldLabel({ page, field, boldFont, x, y, width });
       let cursorY = labelBottomY - 4;
       const options = field.options || [];
       const selected = new Set(Array.isArray(value) ? value : []);
       const doneCount = options.filter((option) => selected.has(option)).length;
-      // The progress bar/text is omitted in the PDF version for checklist
-      // fields. The card starts immediately after the label.
-
-      const cardPad = 8;
+      const mutedColor = rgb(0.42, 0.45, 0.5);
       const rowHeights = checklistRowHeights(field, font, boldFont, width);
+      page.drawText(`${doneCount} of ${options.length} done`, { x, y: cursorY - 10, size: 8.5, font, color: mutedColor });
+      cursorY -= 20;
       let index = 0;
-      // No progress bar to skip; card begins right after the label.
 
       while (index < options.length) {
-        ensureSpace(cardPad * 2 + Math.min(rowHeights[index] || 22, 40));
-        const cardTopY = cursorY;
-        let available = cardTopY - MARGIN - cardPad * 2;
+        ensureSpace(Math.min(rowHeights[index] || 22, 40));
+        let available = cursorY - MARGIN;
         let end = index;
         let segmentHeight = 0;
         while (end < options.length && segmentHeight + rowHeights[end] <= available) {
@@ -966,23 +1067,17 @@ export async function exportWorkbookPdf(config, data) {
           segmentHeight = rowHeights[index];
           end = index + 1;
         }
-        const cardHeight = segmentHeight + cardPad * 2;
-        const cardBottomY = cardTopY - cardHeight;
-        page.drawRectangle({ x, y: cardBottomY, width, height: cardHeight, borderColor: gridColor, borderWidth: 1 });
-        let rowTopY = cardTopY - cardPad;
+        let rowTopY = cursorY;
         for (let rowIndex = index; rowIndex < end; rowIndex++) {
           const option = options[rowIndex];
           const cb = form.createCheckBox(`${field.id}__opt__${rowIndex}`);
-          cb.addToPage(page, { x: x + 8, y: rowTopY - 16, width: 12, height: 12 });
+          cb.addToPage(page, { x, y: rowTopY - 14, width: 12, height: 12 });
           if (selected.has(option)) cb.check();
-          drawContent({ page, field: checklistItemContent(field, rowIndex), embeddedImages: new Map(), imageErrors: new Map(), fonts: { font, boldFont }, x: x + 28, y: rowTopY - 13, width: width - 36 });
-          if (rowIndex > index) {
-            page.drawLine({ start: { x, y: rowTopY }, end: { x: x + width, y: rowTopY }, thickness: 0.5, color: gridColor });
-          }
+          drawRichText({ page, entry: checklistItemTextEntry(field, rowIndex), fonts: { font, boldFont }, x: x + 20, y: rowTopY - 12, width: width - 36 });
           rowTopY -= rowHeights[rowIndex];
         }
         index = end;
-        cursorY = cardBottomY;
+        cursorY -= segmentHeight;
         if (index < options.length) {
           page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
           cursorY = PAGE_HEIGHT - MARGIN;
@@ -998,7 +1093,7 @@ export async function exportWorkbookPdf(config, data) {
 
       if (columnCount === 1) {
         const firstField = fields[0];
-        const firstFieldHeight = firstField ? Math.min(fieldRowHeight(firstField, embeddedImages, font, CONTENT_WIDTH, imageErrors, boldFont), 80) : 0;
+        const firstFieldHeight = firstField ? Math.min(fieldRowHeight(firstField, embeddedImages, font, CONTENT_WIDTH, imageErrors, boldFont, wsValues[firstField.id]), 80) : 0;
         ensureSpace(bannerHeight + firstFieldHeight);
         if (section.title) {
           drawCollapsibleBanner({ page, text: section.title, font: boldFont, x: MARGIN, y, width: CONTENT_WIDTH, height: COLLAPSIBLE_BANNER_HEIGHT });
@@ -1013,7 +1108,7 @@ export async function exportWorkbookPdf(config, data) {
             drawPagedChecklist(field, wsValues[field.id], MARGIN, CONTENT_WIDTH);
             continue;
           }
-          const height = fieldRowHeight(field, embeddedImages, font, CONTENT_WIDTH, imageErrors, boldFont);
+          const height = fieldRowHeight(field, embeddedImages, font, CONTENT_WIDTH, imageErrors, boldFont, wsValues[field.id]);
           ensureSpace(height);
           drawFieldOrPlaceholder({
             form,
@@ -1048,7 +1143,7 @@ export async function exportWorkbookPdf(config, data) {
       const columnGroups = groupByColumn(fields, columnCount, (field) => field.column);
 
       const columnHeights = columnGroups.map((col) =>
-        col.reduce((sum, { item }) => sum + fieldRowHeight(item, embeddedImages, font, innerWidth, imageErrors, boldFont) + GAP, 0)
+        col.reduce((sum, { item }) => sum + fieldRowHeight(item, embeddedImages, font, innerWidth, imageErrors, boldFont, wsValues[item.id]) + GAP, 0)
       );
       const maxColumnHeight = Math.max(0, ...columnHeights) + padTop + padBottom;
       ensureSpace(bannerHeight + maxColumnHeight);
@@ -1079,7 +1174,7 @@ export async function exportWorkbookPdf(config, data) {
             embeddedImages,
             imageErrors,
           });
-          colY -= fieldRowHeight(field, embeddedImages, font, innerWidth, imageErrors, boldFont) + GAP;
+          colY -= fieldRowHeight(field, embeddedImages, font, innerWidth, imageErrors, boldFont, wsValues[field.id]) + GAP;
         }
 
         lowestY = Math.min(lowestY, colY - padBottom);

@@ -5,12 +5,16 @@ import { contentText, repairContentHtmlSpacing } from "../../../src/fields/conte
 export function renderTextEditor(model, key, className, name, onChange) {
   const escaped = document.createElement('div');
   escaped.textContent = model[key] || '';
-  const wrapper = richText.render({ id: `author-${crypto.randomUUID()}`, label: name }, model[`${key}Html`] || escaped.innerHTML);
+  const field = richText.render({ id: `author-${crypto.randomUUID()}`, label: name }, model[`${key}Html`] || escaped.innerHTML);
+  const wrapper = document.createElement('div');
   wrapper.classList.add('builder-text-editor');
-  const editor = wrapper.querySelector('.wb-rich-text-input');
+  const toolbar = field.querySelector('.wb-rich-text-toolbar');
+  const editor = field.querySelector('.wb-rich-text-input');
+  wrapper.appendChild(toolbar);
+  wrapper.appendChild(editor);
   editor.classList.add(className);
   editor.addEventListener('input', () => {
-    const html = repairContentHtmlSpacing(richText.getValue(wrapper));
+    const html = repairContentHtmlSpacing(editor.innerHTML);
     onChange({ [key]: contentText({ html }), [`${key}Html`]: html });
   });
   return wrapper;
