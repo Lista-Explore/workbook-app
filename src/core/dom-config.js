@@ -73,6 +73,7 @@ function fieldConfigFromWrapper(wrapper, column) {
       ...base,
       initialRows: wrapper.querySelectorAll(".wb-table-input-row").length || 1,
       allowAddRows: tableEl?.dataset.allowAddRows === "true",
+      columnWidths: tableEl?.dataset.columnWidths ? JSON.parse(tableEl.dataset.columnWidths) : [],
     };
     if (tableEl?.dataset.cellGrid === "true") {
       const cells = Array.from(tableEl.querySelectorAll("tbody tr")).map((row, rowIndex) =>

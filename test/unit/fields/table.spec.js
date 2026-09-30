@@ -29,6 +29,14 @@ describe("table field", () => {
     expect(wrapper.querySelector(".wb-table-add-row")).not.toBeNull();
   });
 
+  it("renders and recovers user-set column widths", () => {
+    const threeColumnField = { ...field, columns: field.columns.slice(0, 3), columnWidths: [20, 30, 50] };
+    const wrapper = table.render(threeColumnField, null);
+    const widths = Array.from(wrapper.querySelectorAll("col")).map((col) => col.style.width);
+    expect(widths).toEqual(["20%", "30%", "50%"]);
+    expect(table.configFromWrapper(wrapper).columnWidths).toEqual([20, 30, 50]);
+  });
+
   it("gets and sets row values without treating content columns as answers", () => {
     const wrapper = table.render(field, [
       { item: "Paper", qty: "2", notes: "A4", status: "Ready" },

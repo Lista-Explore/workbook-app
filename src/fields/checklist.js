@@ -1,6 +1,5 @@
 import { createWrapper, createLabel, createErrorSlot } from "./field-helpers.js";
 import { sanitizeContent } from "./content.js";
-import { slugify } from "../core/id-generator.js";
 
 export function syncChecklistState(wrapper) {
   const boxes = [...wrapper.querySelectorAll(".wb-checklist-item input[type=checkbox]")];
@@ -31,17 +30,18 @@ export const checklist = {
     progress.setAttribute("aria-live", "polite");
     wrapper.appendChild(progress);
 
-    const list = document.createElement("div");
+    const list = document.createElement("ul");
     list.className = "wb-checklist";
 
     (field.options || []).forEach((item, index) => {
-      const itemId = `${field.id}--${slugify(item)}-${index}`;
-      const row = document.createElement("div");
+      const row = document.createElement("li");
       row.className = "wb-checklist-item";
+
+      const label = document.createElement("label");
+      label.className = "wb-checklist-label";
 
       const input = document.createElement("input");
       input.type = "checkbox";
-      input.id = itemId;
       input.name = field.id;
       input.value = item;
       input.checked = checked.has(item);
@@ -49,13 +49,13 @@ export const checklist = {
         input.dataset.dependsOn = String(dependsOn[index]);
       }
 
-      const label = document.createElement("label");
-      label.className = "wb-checklist-item-label";
-      label.setAttribute("for", itemId);
-      if (field.optionsHtml?.[index]) label.innerHTML = sanitizeContent(field.optionsHtml[index]);
-      else label.textContent = item;
+      const text = document.createElement("span");
+      text.className = "wb-checklist-text";
+      if (field.optionsHtml?.[index]) text.innerHTML = sanitizeContent(field.optionsHtml[index]);
+      else text.textContent = item;
 
-      row.appendChild(input);
+      label.appendChild(input);
+      label.appendChild(text);
       row.appendChild(label);
       list.appendChild(row);
     });

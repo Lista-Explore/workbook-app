@@ -77,6 +77,24 @@ function safeCells(field) {
   );
 }
 
+function columnWidths(field, count) {
+  const widths = Array.isArray(field.columnWidths) ? field.columnWidths.map((value) => Number(value)) : [];
+  const safe = Array.from({ length: count }, (_, index) => (Number.isFinite(widths[index]) && widths[index] > 0 ? widths[index] : 1));
+  const total = safe.reduce((sum, width) => sum + width, 0) || count || 1;
+  return safe.map((width) => (width / total) * 100);
+}
+
+function appendColumnWidths(tableEl, field, count) {
+  tableEl.dataset.columnWidths = JSON.stringify(columnWidths(field, count).map((width) => Number(width.toFixed(4))));
+  const colgroup = document.createElement("colgroup");
+  columnWidths(field, count).forEach((width) => {
+    const col = document.createElement("col");
+    col.style.width = `${width}%`;
+    colgroup.appendChild(col);
+  });
+  tableEl.appendChild(colgroup);
+}
+
 function defaultRows(field) {
   const count = Math.max(Number(field.initialRows) || 1, 1);
   return Array.from({ length: count }, () => ({}));
@@ -233,6 +251,7 @@ export const table = {
     const tableEl = document.createElement("table");
     tableEl.className = "wb-input-table";
     tableEl.dataset.allowAddRows = field.allowAddRows ? "true" : "false";
+    appendColumnWidths(tableEl, field, Math.max(1, ...cells.map((row) => row.length), columns.length));
 
     if (hasCellGrid) {
       tableEl.dataset.cellGrid = "true";
@@ -335,6 +354,7 @@ export const table = {
       required: Boolean(wrapper.querySelector(".wb-required-marker")),
       allowAddRows: tableEl?.dataset.allowAddRows === "true",
       initialRows: wrapper.querySelectorAll(".wb-table-input-row").length || 1,
+      columnWidths: tableEl?.dataset.columnWidths ? JSON.parse(tableEl.dataset.columnWidths) : [],
     };
     if (tableEl?.dataset.cellGrid === "true") {
       return {

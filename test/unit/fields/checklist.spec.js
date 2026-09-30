@@ -32,12 +32,14 @@ describe("checklist field", () => {
     );
 
     const row = wrapper.querySelector(".wb-checklist-item");
-    const label = row.querySelector(".wb-checklist-item-label");
+    const label = row.querySelector(".wb-checklist-label");
+    const text = row.querySelector(".wb-checklist-text");
 
-    expect(row.children[0].tagName).toBe("INPUT");
-    expect(row.children[1]).toBe(label);
-    expect(label.querySelector("h2").textContent).toBe("Plan");
-    expect(label.querySelector("p").textContent).toBe("Review the brief");
+    expect(row.children[0]).toBe(label);
+    expect(label.children[0].tagName).toBe("INPUT");
+    expect(label.children[1]).toBe(text);
+    expect(text.querySelector("h2").textContent).toBe("Plan");
+    expect(text.querySelector("p").textContent).toBe("Review the brief");
   });
 
   it("pre-checks values in the given array", () => {

@@ -302,17 +302,24 @@ function tableInputRowIndices(cells) {
   return indices;
 }
 
+function tableColumnWidths(field, width, count) {
+  const configured = Array.isArray(field.columnWidths) ? field.columnWidths.map((value) => Number(value)) : [];
+  const safe = Array.from({ length: count }, (_, index) => (Number.isFinite(configured[index]) && configured[index] > 0 ? configured[index] : 1));
+  const total = safe.reduce((sum, item) => sum + item, 0) || count || 1;
+  return safe.map((item) => (item / total) * width);
+}
+
 function tableRowHeights(field, fonts, width) {
   const cells = tableCells(field);
   if (!cells.length) return [];
   const columnCount = Math.max(1, ...cells.map((row) => row.length));
-  const cellWidth = width / columnCount;
+  const columnWidths = tableColumnWidths(field, width, columnCount);
   return cells.map((row) => {
-    const heights = row.map((cell) => {
+    const heights = row.map((cell, columnIndex) => {
       if (cell.type === "long-text") return 52;
       if (TABLE_INPUT_TYPES.has(cell.type)) return 28;
       const entry = { runs: [{ text: pdfText(cell.content || ""), bold: cell.type === "header", size: 9 }], align: "left" };
-      return Math.max(30, richTextHeight(entry, fonts, cellWidth - 10) + 10);
+      return Math.max(30, richTextHeight(entry, fonts, columnWidths[columnIndex] - 10) + 10);
     });
     return Math.max(30, ...heights);
   });
@@ -368,7 +375,7 @@ function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFon
     return 20 + count * 16 + labelHeight;
   }
   if (field.type === "checklist") {
-    return 16 + checklistRowHeights(field, font, boldFont, width).reduce((sum, height) => sum + height, 0) + labelHeight;
+    return 4 + checklistRowHeights(field, font, boldFont, width).reduce((sum, height) => sum + height, 0) + labelHeight;
   }
   return 40 + labelHeight;
 }
@@ -791,8 +798,10 @@ function drawTableField({ form, font, boldFont, page, field, value, x, y, width 
   if (!cells.length) return;
   const rowHeights = tableRowHeights(field, fonts, width);
   const columnCount = Math.max(1, ...cells.map((row) => row.length));
-  const cellWidth = width / columnCount;
-  const gridColor = rgb(0.72, 0.72, 0.72);
+  const columnWidths = tableColumnWidths(field, width, columnCount);
+  const gridColor = rgb(0, 0, 0);
+  const gridWidth = 2;
+  const cellPad = 6;
   const headerColor = rgb(0.94, 0.95, 0.96);
   const values = Array.isArray(value) ? value : [];
   let valueRowIndex = 0;
@@ -802,30 +811,33 @@ function drawTableField({ form, font, boldFont, page, field, value, x, y, width 
     const rowBottom = cursorY - rowHeight;
     const isInputRow = row.some((cell) => TABLE_INPUT_TYPES.has(cell.type));
     const rowValue = isInputRow ? values[valueRowIndex++] || {} : {};
+    let cellX = x;
 
     row.forEach((cell, columnIndex) => {
-      const cellX = x + columnIndex * cellWidth;
+      const cellWidth = columnWidths[columnIndex] || width / columnCount;
       if (cell.type === "header") page.drawRectangle({ x: cellX, y: rowBottom, width: cellWidth, height: rowHeight, color: headerColor });
-      page.drawRectangle({ x: cellX, y: rowBottom, width: cellWidth, height: rowHeight, borderColor: gridColor, borderWidth: 0.6 });
+      page.drawRectangle({ x: cellX, y: rowBottom, width: cellWidth, height: rowHeight, borderColor: gridColor, borderWidth: gridWidth });
 
-      const innerX = cellX + 4;
-      const innerWidth = Math.max(8, cellWidth - 8);
+      const innerX = cellX + cellPad;
+      const innerWidth = Math.max(8, cellWidth - cellPad * 2);
       if (TABLE_STATIC_TYPES.has(cell.type)) {
         const entry = { runs: [{ text: pdfText(cell.content || ""), bold: cell.type === "header", size: 9 }], align: "left" };
-        drawRichText({ page, entry, fonts, x: innerX, y: cursorY - 10, width: innerWidth });
+        drawRichText({ page, entry, fonts, x: innerX, y: cursorY - cellPad - 5, width: innerWidth });
+        cellX += cellWidth;
         return;
       }
 
       const fieldName = tableCellFieldName(field.id, cell.id, valueRowIndex - 1);
       const cellValue = rowValue[cell.id];
-      const widgetHeight = cell.type === "long-text" ? Math.max(28, rowHeight - 10) : 18;
-      const widgetY = cell.type === "long-text" ? rowBottom + 5 : cursorY - 5 - widgetHeight;
+      const widgetHeight = cell.type === "long-text" ? Math.max(26, rowHeight - cellPad * 2) : 18;
+      const widgetY = cell.type === "long-text" ? rowBottom + cellPad : cursorY - cellPad - widgetHeight;
       if (cell.type === "dropdown") {
         const dd = form.createDropdown(fieldName);
         dd.addOptions(cell.options || []);
         if (cellValue) dd.select(String(cellValue));
         dd.addToPage(page, { x: innerX, y: widgetY, width: innerWidth, height: widgetHeight, font });
         dd.setFontSize(9);
+        cellX += cellWidth;
         return;
       }
       const tf = form.createTextField(fieldName);
@@ -833,6 +845,7 @@ function drawTableField({ form, font, boldFont, page, field, value, x, y, width 
       if (cellValue != null) tf.setText(String(cellValue));
       tf.addToPage(page, { x: innerX, y: widgetY, width: innerWidth, height: widgetHeight, font, borderWidth: 0.5 });
       tf.setFontSize(9);
+      cellX += cellWidth;
     });
     cursorY = rowBottom;
   });
@@ -927,13 +940,9 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
     case "checklist": {
       const options = field.options || [];
       const selected = new Set(Array.isArray(value) ? value : []);
-      const doneCount = options.filter((option) => selected.has(option)).length;
-      const mutedColor = rgb(0.42, 0.45, 0.5);
       const rowHeights = checklistRowHeights(field, font, boldFont, width);
 
-      page.drawText(`${doneCount} of ${options.length} done`, { x, y: widgetY - 10, size: 8.5, font, color: mutedColor });
-
-      let rowTopY = widgetY - 20;
+      let rowTopY = widgetY;
       options.forEach((option, index) => {
         const cb = form.createCheckBox(`${field.id}__opt__${index}`);
         cb.addToPage(page, { x, y: rowTopY - 14, width: 12, height: 12 });
@@ -1047,11 +1056,7 @@ export async function exportWorkbookPdf(config, data) {
       let cursorY = labelBottomY - 4;
       const options = field.options || [];
       const selected = new Set(Array.isArray(value) ? value : []);
-      const doneCount = options.filter((option) => selected.has(option)).length;
-      const mutedColor = rgb(0.42, 0.45, 0.5);
       const rowHeights = checklistRowHeights(field, font, boldFont, width);
-      page.drawText(`${doneCount} of ${options.length} done`, { x, y: cursorY - 10, size: 8.5, font, color: mutedColor });
-      cursorY -= 20;
       let index = 0;
 
       while (index < options.length) {
@@ -1104,7 +1109,7 @@ export async function exportWorkbookPdf(config, data) {
           if (field.type === "checklist") {
             const labelLines = wrapText(field.label, boldFont || font, 10, CONTENT_WIDTH).length;
             const labelHeight = (labelLines - 1) * LINE_HEIGHT;
-            ensureSpace(labelHeight + 40 + Math.min((checklistRowHeights(field, font, boldFont, CONTENT_WIDTH)[0] || 22), 40));
+            ensureSpace(labelHeight + 20 + Math.min((checklistRowHeights(field, font, boldFont, CONTENT_WIDTH)[0] || 22), 40));
             drawPagedChecklist(field, wsValues[field.id], MARGIN, CONTENT_WIDTH);
             continue;
           }

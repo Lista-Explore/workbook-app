@@ -265,12 +265,12 @@ details.wb-section:not([open]) > .wb-section-fields {
 .wb-input-table {
   width: 100%;
   border-collapse: collapse;
-  border: 1px solid var(--wb-border-strong);
+  border: 2px solid #000;
 }
 
 .wb-input-table th,
 .wb-input-table td {
-  border: 1px solid var(--wb-border);
+  border: 2px solid #000;
   padding: 0.55em;
   text-align: left;
   vertical-align: top;
@@ -339,49 +339,57 @@ details.wb-section:not([open]) > .wb-section-fields {
 }
 
 .wb-checklist-progress {
-  margin: 0.15em 0 0.55em;
-  font-size: 0.86em;
+  margin: 0 0 0.35em;
+  font-size: 0.9em;
   font-weight: 500;
   color: var(--wb-muted);
 }
 
 .wb-checklist {
-  display: grid;
-  gap: 0.48em;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 .wb-checklist-item {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
+  margin: 0 0 0.55em;
+}
+
+.wb-checklist-label {
+  display: flex;
+  align-items: flex-start;
   gap: 0.55em;
-  padding: 0.22em 0;
+  cursor: pointer;
 }
 
 .wb-checklist-item input[type="checkbox"] {
   width: 17px;
   height: 17px;
-  margin: 0.16em 0 0;
+  margin: 0.12em 0 0;
   accent-color: var(--wb-accent);
 }
 
-.wb-checklist-item-label {
+.wb-checklist-text {
   min-width: 0;
-  line-height: 1.45;
-  cursor: pointer;
+  line-height: 1.35;
   overflow-wrap: anywhere;
-  white-space: pre-line;
 }
 
-.wb-checklist-item-label > :first-child {
-  margin-top: 0;
+.wb-checklist-text > * {
+  margin: 0 0 0.3em;
 }
 
-.wb-checklist-item-label > :last-child {
-  margin-bottom: 0;
+.wb-checklist-text h1,
+.wb-checklist-text h2,
+.wb-checklist-text h3,
+.wb-checklist-text h4,
+.wb-checklist-text h5,
+.wb-checklist-text h6 {
+  font-size: 1em;
+  line-height: 1.25;
 }
 
-.wb-checklist-item input:checked + .wb-checklist-item-label {
+.wb-checklist-item input:checked + .wb-checklist-text {
   color: var(--wb-muted);
   text-decoration: line-through;
 }
@@ -390,7 +398,7 @@ details.wb-section:not([open]) > .wb-section-fields {
   cursor: not-allowed;
 }
 
-.wb-checklist-item input:disabled + .wb-checklist-item-label {
+.wb-checklist-item input:disabled + .wb-checklist-text {
   color: var(--wb-muted);
 }
 

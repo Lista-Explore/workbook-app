@@ -109,6 +109,11 @@ function normalizeTableCells(field) {
     field.cells = Array.isArray(field.columns) && field.columns.length ? cellsFromColumns(field) : defaultTableCells();
   }
   const columnCount = Math.max(...field.cells.map((row) => (Array.isArray(row) ? row.length : 0)), 1);
+  if (!Array.isArray(field.columnWidths)) field.columnWidths = [];
+  field.columnWidths = Array.from({ length: columnCount }, (_, index) => {
+    const width = Number(field.columnWidths[index]);
+    return Number.isFinite(width) && width > 0 ? width : Math.round(100 / columnCount);
+  });
   field.cells = field.cells.map((row, rowIndex) => {
     const safeRow = Array.isArray(row) ? row : [];
     return Array.from({ length: columnCount }, (_, columnIndex) => {
@@ -131,6 +136,15 @@ function selectedCellLabel(rowIndex, columnIndex) {
   return `Cell ${rowIndex + 1}, ${columnIndex + 1}`;
 }
 
+function normalizeColumnWidths(widths, count) {
+  const safe = Array.from({ length: count }, (_, index) => {
+    const width = Number(widths?.[index]);
+    return Number.isFinite(width) && width > 0 ? width : Math.round(100 / count);
+  });
+  const total = safe.reduce((sum, width) => sum + width, 0) || count || 1;
+  return safe.map((width) => Math.round((width / total) * 100));
+}
+
 function renderTableEditor(field, onChange, onLightChange) {
   normalizeTableCells(field);
   let selected = { row: 0, column: 0 };
@@ -151,6 +165,26 @@ function renderTableEditor(field, onChange, onLightChange) {
   addRowsLabel.appendChild(addRowsCheckbox);
   addRowsLabel.appendChild(document.createTextNode(' Show learner "Add row" button'));
   settings.appendChild(addRowsLabel);
+
+  const widthControls = document.createElement("div");
+  widthControls.className = "builder-table-widths";
+  field.columnWidths = normalizeColumnWidths(field.columnWidths, field.cells[0].length);
+  field.columnWidths.forEach((width, columnIndex) => {
+    const label = document.createElement("label");
+    label.textContent = `Column ${columnIndex + 1} width`;
+    const input = document.createElement("input");
+    input.type = "number";
+    input.min = "5";
+    input.step = "1";
+    input.value = String(width);
+    input.addEventListener("input", () => {
+      field.columnWidths[columnIndex] = Number(input.value) || width;
+      onLightChange();
+    });
+    label.appendChild(input);
+    widthControls.appendChild(label);
+  });
+  settings.appendChild(widthControls);
   wrap.appendChild(settings);
 
   const toolbar = document.createElement("div");
@@ -224,7 +258,8 @@ function renderTableEditor(field, onChange, onLightChange) {
 
   const insertColumnAfter = (columnIndex) => {
     field.cells.forEach((row, rowIndex) => row.splice(columnIndex + 1, 0, makeTableCell(rowIndex, columnIndex + 1)));
-    onChange({ cells: field.cells });
+    field.columnWidths.splice(columnIndex + 1, 0, field.columnWidths[columnIndex] || Math.round(100 / field.cells[0].length));
+    onChange({ cells: field.cells, columnWidths: normalizeColumnWidths(field.columnWidths, field.cells[0].length) });
   };
 
   field.cells.forEach((cellRow, rowIndex) => {
@@ -307,7 +342,8 @@ function renderTableEditor(field, onChange, onLightChange) {
     removeColumnBtn.disabled = field.cells[0].length <= 1;
     removeColumnBtn.addEventListener("click", () => {
       field.cells.forEach((row) => row.splice(columnIndex, 1));
-      onChange({ cells: field.cells });
+      field.columnWidths.splice(columnIndex, 1);
+      onChange({ cells: field.cells, columnWidths: normalizeColumnWidths(field.columnWidths, field.cells[0].length) });
     });
     td.appendChild(insertColumnBtn);
     td.appendChild(removeColumnBtn);

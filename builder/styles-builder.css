@@ -537,6 +537,16 @@ input.builder-section-title-input:focus {
   gap: 0.45em;
 }
 
+.builder-table-widths {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45em 0.65em;
+}
+
+.builder-table-widths input {
+  width: 4.8em;
+}
+
 .builder-table-toolbar {
   padding: 0.45em;
   border: 1px solid var(--bd-border);
