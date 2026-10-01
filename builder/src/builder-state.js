@@ -130,6 +130,52 @@ export class BuilderState {
     return section;
   }
 
+  /**
+   * Adds a new layout block to a named section, giving it its own column
+   * count independent of the section's existing block(s) — the in-section
+   * equivalent of stacking a second standalone no-section layout. The
+   * section's pre-existing single column count becomes block 0 the first
+   * time this is called, so earlier questions (all implicitly block 0)
+   * keep rendering exactly as before.
+   */
+  addSectionLayoutBlock(worksheetId, sectionId) {
+    const section = this._findSection(worksheetId, sectionId);
+    if (!Array.isArray(section.blocks) || !section.blocks.length) section.blocks = [section.columns || 1];
+    section.blocks.push(1);
+    return section.blocks.length - 1;
+  }
+
+  /**
+   * Sets a layout block's column count. Block 0's count is kept mirrored
+   * onto `section.columns` so code that still only knows about the legacy
+   * single-column-count shape (e.g. a section with no extra blocks) keeps
+   * reading the right value.
+   */
+  updateSectionBlock(worksheetId, sectionId, blockIndex, columns) {
+    const section = this._findSection(worksheetId, sectionId);
+    if (!Array.isArray(section.blocks) || !section.blocks.length) section.blocks = [section.columns || 1];
+    section.blocks[blockIndex] = columns;
+    if (blockIndex === 0) section.columns = columns;
+  }
+
+  /**
+   * Removes a layout block, moving its questions up into the previous
+   * block (or block 0 if it was the first extra block) rather than
+   * deleting them.
+   */
+  removeSectionBlock(worksheetId, sectionId, blockIndex) {
+    const section = this._findSection(worksheetId, sectionId);
+    if (!Array.isArray(section.blocks) || section.blocks.length <= 1) return;
+    const targetBlock = Math.max(blockIndex - 1, 0);
+    for (const field of section.fields || []) {
+      const fieldBlock = Number.isInteger(field.block) ? field.block : 0;
+      if (fieldBlock === blockIndex) field.block = targetBlock;
+      else if (fieldBlock > blockIndex) field.block = fieldBlock - 1;
+    }
+    section.blocks.splice(blockIndex, 1);
+    if (section.blocks.length <= 1) section.columns = section.blocks[0];
+  }
+
   reorderSection(worksheetId, sectionId, newIndex) {
     const worksheet = this._findWorksheet(worksheetId);
     const from = worksheet.sections.findIndex((s) => s.id === sectionId);
@@ -173,10 +219,12 @@ export class BuilderState {
 
   /**
    * Moves existing fields between standalone questions and sections without
-   * changing their ids or field-specific settings. Destination column is
-   * applied at the target so moving into a multi-column section is explicit.
+   * changing their ids or field-specific settings. Destination column (and,
+   * for a named section with more than one layout block, destination block)
+   * is applied at the target so moving into a multi-column section — or a
+   * specific layout block within it — is explicit.
    */
-  moveFields(worksheetId, fieldIds, destinationSectionId, destinationColumn = 0, insertIndex) {
+  moveFields(worksheetId, fieldIds, destinationSectionId, destinationColumn = 0, insertIndex, destinationBlock = 0) {
     const worksheet = this._findWorksheet(worksheetId);
     const ids = [...new Set(fieldIds)].filter(Boolean);
     if (!ids.length) return;
@@ -196,10 +244,15 @@ export class BuilderState {
       ? this._addStandaloneSection(worksheetId, Math.max(Number(destinationColumn) + 1 || 1, 1))
       : this._findSection(worksheetId, destinationSectionId);
 
-    const maxColumn = Math.max((destination.columns || 1) - 1, 0);
+    const blockColumnCounts = !destination.unsectioned && Array.isArray(destination.blocks) && destination.blocks.length
+      ? destination.blocks
+      : [destination.columns || 1];
+    const safeBlock = Math.min(Math.max(Number(destinationBlock) || 0, 0), blockColumnCounts.length - 1);
+    const maxColumn = Math.max((blockColumnCounts[safeBlock] || 1) - 1, 0);
     const safeColumn = Math.min(Math.max(Number(destinationColumn) || 0, 0), maxColumn);
     moved.forEach((field) => {
       field.column = safeColumn;
+      if (blockColumnCounts.length > 1) field.block = safeBlock;
     });
 
     const targetIndex = insertIndex == null

@@ -27,3 +27,42 @@ export function groupByColumn(items, columnCount, getColumn) {
 
   return columns;
 }
+
+/**
+ * Like `groupByColumn`, but first splits items into independent "layout
+ * blocks" (each with its own column count), so a single section can mix
+ * column counts — e.g. a full-width intro row followed by a two-column
+ * block — the same way stacking separate standalone sections already lets
+ * no-section questions do.
+ *
+ * `blockColumnCounts` is an ordered list, one entry per block, giving that
+ * block's column count. `getBlock(item)` returns the item's stored block
+ * index (0-based); missing/invalid values default to block 0, and a value
+ * beyond the list clamps to the last block (mirroring `groupByColumn`'s own
+ * out-of-range handling).
+ *
+ * Returns an array of `{ columnCount, columns }`, one per block in order;
+ * `columns` has the same shape `groupByColumn` returns, with each entry's
+ * `index` remapped back to the item's position in the original flat
+ * `items` list (not the per-block subset) so callers that splice into that
+ * flat array (e.g. the Builder) keep working unchanged.
+ */
+export function groupByBlockThenColumn(items, blockColumnCounts, getBlock, getColumn) {
+  const blockCount = Math.max(blockColumnCounts.length || 1, 1);
+  const blocks = Array.from({ length: blockCount }, () => []);
+
+  items.forEach((item, index) => {
+    const raw = getBlock ? getBlock(item) : 0;
+    const blockIndex = Math.min(Math.max(Number.isInteger(raw) ? raw : 0, 0), blockCount - 1);
+    blocks[blockIndex].push({ item, index });
+  });
+
+  return blocks.map((bucket, blockIndex) => {
+    const columnCount = Math.max(blockColumnCounts[blockIndex] || 1, 1);
+    const subColumns = groupByColumn(bucket.map((entry) => entry.item), columnCount, getColumn);
+    const columns = subColumns.map((column) =>
+      column.map((entry) => ({ item: entry.item, index: bucket[entry.index].index }))
+    );
+    return { columnCount, columns };
+  });
+}

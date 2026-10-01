@@ -1,13 +1,29 @@
 import { repairContentHtmlSpacing, repairPdfTextSpacing, sanitizeContent } from "../fields/content.js";
-import { PDFDocument, rgb } from "../vendor/pdf-lib.esm.js";
+import { PDFDocument, rgb, layoutMultilineText } from "../vendor/pdf-lib.esm.js";
 import fontkit from "../vendor/fontkit.esm.js";
 import { DISPLAY_ONLY_FIELD_TYPES } from "../fields/index.js";
-import { groupByColumn } from "../core/column-layout.js";
+import { renderContent } from "./content-renderer.js";
+import { groupByColumn, groupByBlockThenColumn } from "../core/column-layout.js";
 
 /**
  * Escape text for inclusion in HTML.  Mirrors what `document.createElement('div').textContent`
  * would do, but works in environments without a DOM.
  */
+// A named section can hold more than one layout block, each with its own
+// column count (authored via "+ Start new layout in this section"). These
+// two helpers are the PDF export's equivalent of the Runtime/Builder's own
+// `section.blocks` + `field.block` handling.
+function sectionBlockColumnCounts(section) {
+  return !section.unsectioned && Array.isArray(section.blocks) && section.blocks.length
+    ? section.blocks
+    : [section.columns || 1];
+}
+
+function fieldBlockIndex(field, blockColumnCounts) {
+  const raw = Number.isInteger(field.block) ? field.block : 0;
+  return Math.min(Math.max(raw, 0), blockColumnCounts.length - 1);
+}
+
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, "&amp;")
@@ -269,6 +285,7 @@ function normalizeTableCell(cell, rowIndex, columnIndex) {
     type,
     content: cell?.content || "",
     options: Array.isArray(cell?.options) ? cell.options : [],
+    rendered: cell?.rendered,
   };
 }
 
@@ -309,25 +326,40 @@ function tableColumnWidths(field, width, count) {
   return safe.map((item) => (item / total) * width);
 }
 
+function tableCellEntry(cell) {
+  const host = document.createElement("div");
+  host.innerHTML = sanitizeContent(cell.content || "");
+  return { runs: collectTextRuns(host, { size: 9, bold: cell.type === "header" }), align: "left" };
+}
+
 function tableRowHeights(field, fonts, width) {
+  if (field._pdfRowHeights?.width === width) return field._pdfRowHeights.heights;
   const cells = tableCells(field);
   if (!cells.length) return [];
   const columnCount = Math.max(1, ...cells.map((row) => row.length));
   const columnWidths = tableColumnWidths(field, width, columnCount);
-  return cells.map((row) => {
+  let answerIndex = 0;
+  const heights = cells.map((row) => {
+    const value = row.some((cell) => TABLE_INPUT_TYPES.has(cell.type)) ? field._pdfValues?.[answerIndex++] || {} : {};
     const heights = row.map((cell, columnIndex) => {
-      if (cell.type === "long-text") return 52;
+      if (cell.type === "long-text") {
+        const layout = layoutMultilineText(String(value[cell.id] || ""), { alignment: 0, fontSize: 9, font: fonts.font, bounds: { x: 0, y: 0, width: Math.max(1, columnWidths[columnIndex] - 16), height: 10000 } });
+        return Math.max(52, layout.lines.length * layout.lineHeight + 20);
+      }
       if (TABLE_INPUT_TYPES.has(cell.type)) return 28;
-      const entry = { runs: [{ text: pdfText(cell.content || ""), bold: cell.type === "header", size: 9 }], align: "left" };
-      return Math.max(30, richTextHeight(entry, fonts, columnWidths[columnIndex] - 10) + 10);
+      if (cell.rendered) return Math.max(30, cell.rendered.height + 12);
+      const entry = tableCellEntry(cell);
+      return Math.max(30, richTextHeight(entry, fonts, columnWidths[columnIndex] - 12) + 16);
     });
     return Math.max(30, ...heights);
   });
+  field._pdfRowHeights = { width, heights };
+  return heights;
 }
 
 function tableFieldHeight(field, fonts, width) {
   const labelLines = wrapText(field.label, fonts.boldFont || fonts.font, 10, width).length;
-  return (labelLines - 1) * LINE_HEIGHT + 4 + tableRowHeights(field, fonts, width).reduce((sum, height) => sum + height, 0) + 8;
+  return labelLines * LINE_HEIGHT + 4 + tableRowHeights(field, fonts, width).reduce((sum, height) => sum + height, 0) + 8;
 }
 
 function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFont, value) {
@@ -341,6 +373,7 @@ function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFon
     const text = `[image not embedded${reason ? `: ${reason}` : ""}]`;
     return wrapText(text, font, 8, width).length * LINE_HEIGHT + 8;
   }
+  if (field._pdfContent) return field._pdfContent.height + (field.type === "rich-text" ? 30 : 4);
   if (field.type === "content") {
     return contentHeight(field, embeddedImages, { font, boldFont: boldFont || font }, width, imageErrors);
   }
@@ -486,7 +519,7 @@ function textEntryForNode(node, { prefix = "" } = {}) {
   }
   const normalizedRuns = [];
   for (const run of runs) {
-    const text = pdfText(run.text.replace(/\s+/g, " "));
+    const text = run.text === "\n" ? "\n" : pdfText(run.text.replace(/[^\S\n]+/g, " "));
     if (!text) continue;
     normalizedRuns.push({ ...run, text });
   }
@@ -596,7 +629,7 @@ export function contentEntries(field) {
       return;
     }
 
-    if (STRUCTURAL_TAGS.has(tag)) {
+    if (STRUCTURAL_TAGS.has(tag) || tag === "blockquote") {
       Array.from(node.childNodes).forEach(visit);
       return;
     }
@@ -756,9 +789,16 @@ function drawTable({ page, entry, fonts, x, y, width }) {
   return cursorY - GAP;
 }
 
-function drawContent({ page, field, embeddedImages, imageErrors, fonts, x, y, width }) {
+function drawContent({ page, field, embeddedImages, imageErrors, fonts, x, y, width, entries = contentEntries(field) }) {
   let cursorY = y;
-  for (const entry of contentEntries(field)) {
+  if (field._pdfContent) {
+    for (const slice of field._pdfContent.slices) {
+      page.drawImage(slice.image, { x, y: cursorY - slice.height, width, height: slice.height });
+      cursorY -= slice.height;
+    }
+    return;
+  }
+  for (const entry of entries) {
     if (entry.type === "image") {
       const image = embeddedImages?.get(entry.key);
       if (image) {
@@ -790,9 +830,9 @@ function drawContent({ page, field, embeddedImages, imageErrors, fonts, x, y, wi
 }
 
 
-function drawTableField({ form, font, boldFont, page, field, value, x, y, width }) {
+function drawTableField({ form, font, boldFont, page, field, value, x, y, width, startRow = 0, endRow, answerStart = 0, hideLabel = false }) {
   const fonts = { font, boldFont };
-  const labelBottomY = drawFieldLabel({ page, field, boldFont, x, y, width });
+  const labelBottomY = hideLabel ? y + 4 : drawFieldLabel({ page, field, boldFont, x, y, width });
   let cursorY = labelBottomY - 4;
   const cells = tableCells(field);
   if (!cells.length) return;
@@ -804,9 +844,10 @@ function drawTableField({ form, font, boldFont, page, field, value, x, y, width 
   const cellPad = 6;
   const headerColor = rgb(0.94, 0.95, 0.96);
   const values = Array.isArray(value) ? value : [];
-  let valueRowIndex = 0;
+  let valueRowIndex = answerStart;
 
   cells.forEach((row, rowIndex) => {
+    if (rowIndex < startRow || rowIndex >= (endRow ?? cells.length)) return;
     const rowHeight = rowHeights[rowIndex] || 24;
     const rowBottom = cursorY - rowHeight;
     const isInputRow = row.some((cell) => TABLE_INPUT_TYPES.has(cell.type));
@@ -821,8 +862,13 @@ function drawTableField({ form, font, boldFont, page, field, value, x, y, width 
       const innerX = cellX + cellPad;
       const innerWidth = Math.max(8, cellWidth - cellPad * 2);
       if (TABLE_STATIC_TYPES.has(cell.type)) {
-        const entry = { runs: [{ text: pdfText(cell.content || ""), bold: cell.type === "header", size: 9 }], align: "left" };
-        drawRichText({ page, entry, fonts, x: innerX, y: cursorY - cellPad - 5, width: innerWidth });
+        if (cell.rendered) {
+          let imageY = cursorY - cellPad;
+          for (const slice of cell.rendered.slices) {
+            page.drawImage(slice.image, { x: innerX, y: imageY - slice.height, width: innerWidth, height: slice.height });
+            imageY -= slice.height;
+          }
+        } else drawRichText({ page, entry: tableCellEntry(cell), fonts, x: innerX, y: cursorY - cellPad - 9, width: innerWidth });
         cellX += cellWidth;
         return;
       }
@@ -852,6 +898,10 @@ function drawTableField({ form, font, boldFont, page, field, value, x, y, width 
 }
 
 function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
+  if (field.type === "table") {
+    drawTableField({ form, font, boldFont, page, field, value, x, y, width });
+    return;
+  }
   const labelBottomY = drawFieldLabel({ page, field, boldFont, x, y, width });
   const widgetY = labelBottomY - 4;
 
@@ -878,11 +928,6 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
       // little text in it can render enormous. Match the label's size
       // instead of leaving it to the viewer's guess.
       tf.setFontSize(10);
-      return;
-    }
-
-    case "table": {
-      drawTableField({ form, font, boldFont, page, field, value, x, y, width });
       return;
     }
 
@@ -1010,19 +1055,46 @@ function drawFieldOrPlaceholder({ form, font, boldFont, page, field, value, x, y
  */
 export async function exportWorkbookPdf(config, data) {
   const worksheetsData = (data && data.worksheets) || {};
+  config = structuredClone(config);
 
   const pdfDoc = await PDFDocument.create();
   const { font, boldFont } = await embedPoppins(pdfDoc);
   const form = pdfDoc.getForm();
+  for (const worksheet of config.worksheets || []) {
+    const values = worksheetsData[worksheet.id] || {};
+    for (const section of worksheet.sections || []) {
+      const blockColumnCounts = sectionBlockColumnCounts(section);
+      for (const field of section.fields || []) {
+        const columns = blockColumnCounts[fieldBlockIndex(field, blockColumnCounts)] || 1;
+        const width = columns === 1 ? CONTENT_WIDTH : (CONTENT_WIDTH - GAP * (columns - 1)) / columns - COLUMN_PADDING * 2;
+        if (field.type === "content" || (field.type === "rich-text" && values[field.id])) {
+          field._pdfContent = await renderContent(pdfDoc, field.type === "content" ? field.html : String(values[field.id]), width);
+        }
+        if (field.type === "table") {
+          field.cells = tableCells(field);
+          field._pdfValues = Array.isArray(values[field.id]) ? values[field.id] : [];
+          const inputRows = field.cells.filter((row) => row.some((cell) => TABLE_INPUT_TYPES.has(cell.type)));
+          const template = inputRows.at(-1);
+          if (template) for (let i = inputRows.length; i < field._pdfValues.length; i++) field.cells.push(structuredClone(template));
+          const widths = tableColumnWidths(field, width, field.cells[0]?.length || 1);
+          for (const row of field.cells) for (const [index, cell] of row.entries()) {
+            if (TABLE_STATIC_TYPES.has(cell.type)) cell.rendered = await renderContent(pdfDoc, cell.type === "header" ? `<strong>${sanitizeContent(cell.content)}</strong>` : cell.content, widths[index] - 12);
+          }
+        }
+      }
+    }
+  }
   const { embedded: embeddedImages, errors: imageErrors } = await embedImageFields(pdfDoc, config);
 
   let page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   let y = PAGE_HEIGHT - MARGIN;
 
+  let flowTopPadding = 0;
   function ensureSpace(height) {
     if (y - height < MARGIN) {
-      page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-      y = PAGE_HEIGHT - MARGIN;
+      const nextIndex = pdfDoc.getPages().indexOf(page) + 1;
+      page = pdfDoc.getPages()[nextIndex] || pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+      y = PAGE_HEIGHT - MARGIN - flowTopPadding;
     }
   }
 
@@ -1050,6 +1122,92 @@ export async function exportWorkbookPdf(config, data) {
     }
 
     const wsValues = worksheetsData[worksheet.id] || {};
+
+    // Content is a flow of paragraphs, images and rows, not an indivisible
+    // field. Moving the whole field leaves its section banner stranded and
+    // can draw past the bottom of a page when the field is taller than one.
+    function drawPagedContent(field, x, width) {
+      if (field._pdfContent) {
+        for (const slice of field._pdfContent.slices) {
+          ensureSpace(slice.height);
+          page.drawImage(slice.image, { x, y: y - slice.height, width, height: slice.height });
+          y -= slice.height;
+        }
+        y -= GAP;
+        return;
+      }
+      const fonts = { font, boldFont };
+      const entries = contentEntries(field);
+      for (let index = 0; index < entries.length; index++) {
+        const entry = entries[index];
+        if (entry.type === "text") {
+          const lines = layoutRichText(entry.runs || [], fonts, width);
+          const heights = lines.map((line) => Math.max(LINE_HEIGHT, ...line.runs.map((run) => (run.size || 10) + 3)));
+          // Keep at least two lines together at the start of a paragraph.
+          // Larger heading text also stays with the start of the next item.
+          const heading = entry.runs.some((run) => run.size > 10);
+          const next = entries[index + 1];
+          let followingHeight = 0;
+          if (heading && next) {
+            const image = next.type === "image" && embeddedImages.get(next.key);
+            followingHeight = image ? scaledContentImageSize(image, width, next.widthRatio).height + GAP : LINE_HEIGHT * 2;
+          }
+          ensureSpace(heights.slice(0, heading ? heights.length : 2).reduce((sum, height) => sum + height, 0) + followingHeight + 4);
+          lines.forEach((line, lineIndex) => {
+            ensureSpace(heights[lineIndex]);
+            drawRichText({ page, entry: { ...entry, runs: line.runs }, fonts, x, y, width });
+            y -= heights[lineIndex];
+          });
+          y -= 4;
+          continue;
+        }
+        if (entry.type === "table") {
+          for (const row of entry.rows) {
+            const rowEntry = { ...entry, rows: [row] };
+            const height = tableLayout(rowEntry, fonts, width).rowLayouts[0].height;
+            ensureSpace(height);
+            drawTable({ page, entry: rowEntry, fonts, x, y, width });
+            y -= height;
+          }
+          y -= GAP;
+          continue;
+        }
+        const image = entry.type === "image" && embeddedImages.get(entry.key);
+        const reason = imageErrors.get(entry.key);
+        const fallback = `[image not embedded${reason ? `: ${reason}` : entry.alt ? `: ${entry.alt}` : ""}]`;
+        const height = entry.type === "rule" ? ruleHeight() : image
+          ? scaledContentImageSize(image, width, entry.widthRatio).height + GAP
+          : wrapText(fallback, font, 8, width).length * LINE_HEIGHT + GAP;
+        ensureSpace(height);
+        drawContent({ page, field, entries: [entry], embeddedImages, imageErrors, fonts, x, y, width });
+        y -= height;
+      }
+      y -= GAP + 4;
+    }
+
+    function drawPagedTable(field, value, x, width) {
+      const cells = tableCells(field);
+      const heights = tableRowHeights(field, { font, boldFont }, width);
+      const labelHeight = wrapText(field.label, boldFont, 10, width).length * LINE_HEIGHT + 4;
+      const headerCount = cells.findIndex((row) => !row.every((cell) => cell.type === "header"));
+      const headers = headerCount < 0 ? cells.length : headerCount;
+      ensureSpace(labelHeight + heights.slice(0, Math.min(cells.length, headers + 1)).reduce((a,b) => a+b, 0));
+      y = drawFieldLabel({ page, field, boldFont, x, y, width }) - 4;
+      let answerStart = 0;
+      for (let row = 0; row < cells.length; row++) {
+        if (y - heights[row] < MARGIN) {
+          ensureSpace(heights[row]);
+          if (row >= headers && headers > 0 && heights.slice(0, headers).reduce((a,b) => a+b, 0) + heights[row] < PAGE_HEIGHT - MARGIN * 2) {
+            drawTableField({ form, font, boldFont, page, field, value, x, y, width, startRow: 0, endRow: headers, hideLabel: true });
+            y -= heights.slice(0, headers).reduce((a,b) => a+b, 0);
+          }
+        }
+        drawTableField({ form, font, boldFont, page, field, value, x, y, width, startRow: row, endRow: row + 1, answerStart, hideLabel: true });
+        y -= heights[row];
+        if (cells[row].some((cell) => TABLE_INPUT_TYPES.has(cell.type))) answerStart++;
+      }
+      y -= GAP;
+    }
 
     function drawPagedChecklist(field, value, x, width) {
       const labelBottomY = drawFieldLabel({ page, field, boldFont, x, y, width });
@@ -1092,20 +1250,45 @@ export async function exportWorkbookPdf(config, data) {
     }
 
     for (const section of worksheet.sections || []) {
-      const columnCount = section.columns || 1;
-      const fields = section.fields || [];
-      const bannerHeight = section.title ? COLLAPSIBLE_BANNER_HEIGHT + 12 : 0;
+      // A named section can hold more than one layout block, each with its
+      // own column count (see sectionBlockColumnCounts) — drawn here as
+      // consecutive passes, one per block, with the section's title banner
+      // only drawn once, above the first block.
+      const sectionFields = section.fields || [];
+      const blockColumnCounts = sectionBlockColumnCounts(section);
+      const blocks = blockColumnCounts.length > 1
+        ? groupByBlockThenColumn(sectionFields, blockColumnCounts, (field) => fieldBlockIndex(field, blockColumnCounts), (field) => field.column)
+            .map(({ columnCount, columns }) => ({ columnCount, fields: columns.flatMap((column) => column.map((entry) => entry.item)) }))
+        : [{ columnCount: blockColumnCounts[0], fields: sectionFields }];
+
+      blocks.forEach(({ columnCount, fields }, blockIndex) => {
+      const isLastBlock = blockIndex === blocks.length - 1;
+      const bannerHeight = blockIndex === 0 && section.title ? COLLAPSIBLE_BANNER_HEIGHT + 12 : 0;
 
       if (columnCount === 1) {
         const firstField = fields[0];
-        const firstFieldHeight = firstField ? Math.min(fieldRowHeight(firstField, embeddedImages, font, CONTENT_WIDTH, imageErrors, boldFont, wsValues[firstField.id]), 80) : 0;
+        const firstFieldHeight = firstField?._pdfContent ? (firstField._pdfContent.slices[0]?.height || 0) : firstField ? Math.min(fieldRowHeight(firstField, embeddedImages, font, CONTENT_WIDTH, imageErrors, boldFont, wsValues[firstField.id]), 80) : 0;
         ensureSpace(bannerHeight + firstFieldHeight);
-        if (section.title) {
+        if (bannerHeight) {
           drawCollapsibleBanner({ page, text: section.title, font: boldFont, x: MARGIN, y, width: CONTENT_WIDTH, height: COLLAPSIBLE_BANNER_HEIGHT });
           y -= bannerHeight;
         }
 
         for (const field of fields) {
+          if (field.type === "table") {
+            drawPagedTable(field, wsValues[field.id], MARGIN, CONTENT_WIDTH);
+            continue;
+          }
+          if (field.type === "rich-text" && field._pdfContent) {
+            ensureSpace(40 + (field._pdfContent.slices[0]?.height || 0));
+            y = drawFieldLabel({ page, field, boldFont, x: MARGIN, y, width: CONTENT_WIDTH }) - 4;
+            drawPagedContent(field, MARGIN, CONTENT_WIDTH);
+            continue;
+          }
+          if (field.type === "content") {
+            drawPagedContent(field, MARGIN, CONTENT_WIDTH);
+            continue;
+          }
           if (field.type === "checklist") {
             const labelLines = wrapText(field.label, boldFont || font, 10, CONTENT_WIDTH).length;
             const labelHeight = (labelLines - 1) * LINE_HEIGHT;
@@ -1130,8 +1313,8 @@ export async function exportWorkbookPdf(config, data) {
           });
           y -= height + GAP;
         }
-        y -= SECTION_GAP - GAP;
-        continue;
+        if (isLastBlock) y -= SECTION_GAP - GAP;
+        return;
       }
 
       const colWidth = (CONTENT_WIDTH - GAP * (columnCount - 1)) / columnCount;
@@ -1147,68 +1330,52 @@ export async function exportWorkbookPdf(config, data) {
       // would ignore where the designer actually placed each question.
       const columnGroups = groupByColumn(fields, columnCount, (field) => field.column);
 
-      const columnHeights = columnGroups.map((col) =>
-        col.reduce((sum, { item }) => sum + fieldRowHeight(item, embeddedImages, font, innerWidth, imageErrors, boldFont, wsValues[item.id]) + GAP, 0)
-      );
-      const maxColumnHeight = Math.max(0, ...columnHeights) + padTop + padBottom;
-      ensureSpace(bannerHeight + maxColumnHeight);
-
-      if (section.title) {
+      ensureSpace(bannerHeight + 80);
+      if (bannerHeight) {
         drawCollapsibleBanner({ page, text: section.title, font: boldFont, x: MARGIN, y, width: CONTENT_WIDTH, height: COLLAPSIBLE_BANNER_HEIGHT });
         y -= bannerHeight;
       }
-
-      const sectionStartY = y;
-      let lowestY = sectionStartY;
-
-      columnGroups.forEach((column, colIndex) => {
-        let colY = sectionStartY - padTop;
+      const startPage = pdfDoc.getPages().indexOf(page);
+      const startY = y;
+      let endPage = startPage;
+      let endY = startY;
+      flowTopPadding = padTop;
+      for (const [colIndex, column] of columnGroups.entries()) {
+        page = pdfDoc.getPages()[startPage];
+        y = startY - padTop;
         const x = MARGIN + colIndex * (colWidth + GAP) + padX;
-
         for (const { item: field } of column) {
-          drawFieldOrPlaceholder({
-            form,
-            font,
-            boldFont,
-            page,
-            field,
-            value: wsValues[field.id],
-            x,
-            y: colY,
-            width: innerWidth,
-            embeddedImages,
-            imageErrors,
-          });
-          colY -= fieldRowHeight(field, embeddedImages, font, innerWidth, imageErrors, boldFont, wsValues[field.id]) + GAP;
+          if (field.type === "content") drawPagedContent(field, x, innerWidth);
+          else if (field.type === "table") drawPagedTable(field, wsValues[field.id], x, innerWidth);
+          else if (field.type === "rich-text" && field._pdfContent) {
+            ensureSpace(40 + (field._pdfContent.slices[0]?.height || 0));
+            y = drawFieldLabel({ page, field, boldFont, x, y, width: innerWidth }) - 4;
+            drawPagedContent(field, x, innerWidth);
+          } else {
+            const height = fieldRowHeight(field, embeddedImages, font, innerWidth, imageErrors, boldFont, wsValues[field.id]);
+            ensureSpace(height);
+            drawFieldOrPlaceholder({ form, font, boldFont, page, field, value: wsValues[field.id], x, y, width: innerWidth, embeddedImages, imageErrors });
+            y -= height + GAP;
+          }
         }
-
-        lowestY = Math.min(lowestY, colY - padBottom);
-      });
-
-      // A multi-column section gets a real border + column dividers, so it
-      // actually reads as a table instead of just floating groups of
-      // fields separated by whitespace.
-      const gridColor = rgb(0.82, 0.84, 0.87);
-      page.drawRectangle({
-        x: MARGIN,
-        y: lowestY,
-        width: CONTENT_WIDTH,
-        height: sectionStartY - lowestY,
-        borderColor: gridColor,
-        borderWidth: 1,
-      });
-      for (let colIndex = 1; colIndex < columnCount; colIndex++) {
-        const dividerX = MARGIN + colIndex * (colWidth + GAP) - GAP / 2;
-        page.drawLine({
-          start: { x: dividerX, y: sectionStartY },
-          end: { x: dividerX, y: lowestY },
-          color: gridColor,
-          thickness: 1,
-          dashArray: [1, 2],
-        });
+        const lastPage = pdfDoc.getPages().indexOf(page);
+        if (lastPage > endPage) { endPage = lastPage; endY = y; }
+        else if (lastPage === endPage) endY = Math.min(endY, y);
       }
-
-      y = lowestY - SECTION_GAP;
+      flowTopPadding = 0;
+      const gridColor = rgb(0.82, 0.84, 0.87);
+      for (let pageIndex = startPage; pageIndex <= endPage; pageIndex++) {
+        const target = pdfDoc.getPages()[pageIndex];
+        const top = pageIndex === startPage ? startY : PAGE_HEIGHT - MARGIN;
+        const bottom = pageIndex === endPage ? Math.max(MARGIN, endY - padBottom) : MARGIN;
+        for (let colIndex = 1; colIndex < columnCount; colIndex++) {
+          const dividerX = MARGIN + colIndex * (colWidth + GAP) - GAP / 2;
+          target.drawLine({ start: { x: dividerX, y: top }, end: { x: dividerX, y: bottom }, color: gridColor, thickness: 1, dashArray: [1, 2] });
+        }
+      }
+      page = pdfDoc.getPages()[endPage];
+      y = endY - padBottom - (isLastBlock ? SECTION_GAP : GAP);
+      });
     }
   });
 

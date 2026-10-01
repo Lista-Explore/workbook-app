@@ -566,3 +566,70 @@ describe("exportWorkbookPdf — table and field mapping", () => {
     expect(imported.unmatchedInPdf).toEqual([]);
   });
 });
+
+describe("exportWorkbookPdf — content flow regressions", () => {
+  it("preserves quoted paragraphs and explicit line breaks", () => {
+    const entries = contentEntries({ id: "quote", html: '<blockquote><p><strong>Reflect:</strong><br>First question</p><p><em>Second paragraph</em></p></blockquote>' });
+    expect(entries).toHaveLength(2);
+    expect(entries[0].runs.map((run) => run.text).join("")).toBe("Reflect:\nFirst question");
+    expect(entries[1].runs).toMatchObject([{ text: "Second paragraph", italic: true }]);
+  });
+
+  it("flows long content below its banner, keeps all lines on-page, and draws table labels once", async () => {
+    const { PDFPage } = await import("../../src/vendor/pdf-lib.esm.js");
+    const calls = [];
+    const original = PDFPage.prototype.drawText;
+    const spy = vi.spyOn(PDFPage.prototype, "drawText").mockImplementation(function (text, options) {
+      calls.push({ page: this, text, ...options });
+      return original.call(this, text, options);
+    });
+    try {
+      const config = { title: "Flow regression", worksheets: [{ id: "ws", sections: [
+        { fields: [{ id: "intro", type: "content", html: "<p>Introduction</p>" }] },
+        { title: "Keep this banner with content", fields: [
+          { id: "body", type: "content", html: '<p>' + Array.from({ length: 140 }, (_, i) => `Line ${i}`).join('<br>') + '</p>' },
+          { id: "table", type: "table", label: "Unique table label", cells: [[{ id: "answer", type: "long-text" }]] },
+          { id: "after", type: "short-text", label: "After table" },
+        ] },
+      ] }] };
+      const result = await PDFDocument.load(await exportWorkbookPdf(config, {}));
+      expect(result.getPageCount()).toBeGreaterThan(2);
+      const banner = calls.find((call) => call.text === "Keep this banner with content");
+      expect(calls.find((call) => call.text === "Line").page).toBe(banner.page);
+      for (let i = 0; i < 140; i++) expect(calls.filter((call) => call.text === String(i))).toHaveLength(1);
+      expect(calls.filter((call) => call.text === "Unique table label")).toHaveLength(1);
+      for (const call of calls) expect(call.y).toBeGreaterThanOrEqual(50);
+      const tableRect = widgetRect(result.getForm(), "table__cell__answer__row__0");
+      const afterRect = widgetRect(result.getForm(), "after");
+      const tablePage = calls.find((call) => call.text === "Unique table label").page;
+      const afterPage = calls.find((call) => call.text === "After table").page;
+      if (tablePage === afterPage) expect(afterRect.y + afterRect.height).toBeLessThan(tableRect.y);
+      else expect(calls.findIndex((call) => call.page === afterPage)).toBeGreaterThan(calls.findIndex((call) => call.page === tablePage));
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe('table pagination and saved answers', () => {
+  it('exports all added rows, keeps widgets within page margins, and round-trips answers', async () => {
+    const values = Array.from({length: 28}, (_, i) => ({answer: i === 2 ? 'Long response. '.repeat(120) : `Answer ${i}`}));
+    const config = {id:'rows', worksheets:[{id:'ws',sections:[{fields:[{id:'t',type:'table',label:'Table',cells:[[{id:'h',type:'header',content:'<strong>Header</strong>'}],[{id:'answer',type:'long-text'}]]}]}]}]};
+    const bytes = await exportWorkbookPdf(config,{worksheets:{ws:{t:values}}});
+    const pdf = await PDFDocument.load(bytes);
+    expect(pdf.getPageCount()).toBeGreaterThan(2);
+    expect(pdf.getForm().getFields()).toHaveLength(28);
+    for (const field of pdf.getForm().getFields()) for (const widget of field.acroField.getWidgets()) {
+      const rect = widget.getRectangle();
+      expect(rect.y).toBeGreaterThanOrEqual(49);
+      expect(rect.y+rect.height).toBeLessThanOrEqual(743);
+    }
+    const imported = await importWorkbookPdf(config, bytes);
+    expect(imported.data.worksheets.ws.t).toEqual(values);
+    const {table} = await import('../../src/fields/table.js');
+    const wrapper = table.render(config.worksheets[0].sections[0].fields[0],values);
+    expect(table.getValue(wrapper)).toEqual(values);
+    table.setValue(wrapper,values);
+    expect(table.getValue(wrapper)).toEqual(values);
+  });
+});

@@ -1,7 +1,7 @@
 import { renderFieldEditor } from "./field-editor.js";
 
 
-function renderColumnsControl(section, state, worksheetId, onChange) {
+function renderColumnsControl(section, state, worksheetId, onChange, isNamedSection) {
   const columnsLabel = document.createElement("label");
   columnsLabel.className = "builder-columns-control";
   columnsLabel.textContent = "Columns";
@@ -15,7 +15,12 @@ function renderColumnsControl(section, state, worksheetId, onChange) {
   columnsSelect.value = String(section.columns || 1);
   columnsSelect.addEventListener("change", () => {
     const columns = Number(columnsSelect.value);
-    if (section.id) state.updateSection(worksheetId, section.id, { columns });
+    // A named section's control always edits layout block 0 — once extra
+    // blocks exist (added via "+ Start new layout in this section"),
+    // `updateSectionBlock` is what keeps `section.columns` mirroring block
+    // 0 rather than drifting out of sync with it.
+    if (isNamedSection) state.updateSectionBlock(worksheetId, section.id, 0, columns);
+    else if (section.id) state.updateSection(worksheetId, section.id, { columns });
     else section.columns = columns;
     onChange();
   });
@@ -77,7 +82,7 @@ export function renderSectionEditor(container, state, worksheetId, onChange, onL
       onLightChange();
     });
 
-    const columnsLabel = renderColumnsControl(section, state, worksheetId, onChange);
+    const columnsLabel = renderColumnsControl(section, state, worksheetId, onChange, true);
 
     const startCollapsedLabel = document.createElement("label");
     const startCollapsedCheckbox = document.createElement("input");

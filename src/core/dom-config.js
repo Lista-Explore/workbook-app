@@ -33,11 +33,11 @@ function fieldLabelAndRequired(wrapper, type) {
   return { label: displayEl ? displayEl.textContent.trim() : "", required: false };
 }
 
-function fieldConfigFromWrapper(wrapper, column) {
+function fieldConfigFromWrapper(wrapper, column, block) {
   const id = wrapper.dataset.fieldId;
   const type = wrapper.dataset.fieldType;
   const { label, required } = fieldLabelAndRequired(wrapper, type);
-  const base = { id, type, label, required, column };
+  const base = { id, type, label, required, column, ...(block ? { block } : {}) };
 
   if (type === "content") {
     return { ...base, html: sanitizeContent(wrapper.querySelector(".wb-content")?.innerHTML || "") };
@@ -116,18 +116,34 @@ function sectionConfigFromEl(sectionEl) {
   const id = sectionEl.dataset.sectionId;
   const titleEl = sectionEl.querySelector(".wb-section-title");
   const title = titleEl ? titleEl.textContent.replace(/^[▾▸]\s*/, "").trim() : "";
-  const fieldsWrap = sectionEl.querySelector(".wb-section-fields");
-  const columns = fieldsWrap ? Number(fieldsWrap.dataset.columns || 1) : 1;
-  const columnEls = fieldsWrap ? Array.from(fieldsWrap.querySelectorAll(":scope > .wb-column")) : [];
+  // A section can render more than one .wb-section-fields block — one per
+  // layout block authored in the Builder (each with its own column count,
+  // all under this one section's banner). Reading every block back here,
+  // not just the first, is what keeps "Import LMS-HTML" round-tripping a
+  // multi-layout section correctly instead of silently dropping the rest.
+  const fieldsWraps = Array.from(sectionEl.querySelectorAll(":scope > .wb-section-fields"));
+  const blockColumnCounts = fieldsWraps.map((wrap) => Number(wrap.dataset.columns || 1));
+  const columns = blockColumnCounts[0] || 1;
 
   const fields = [];
-  columnEls.forEach((colEl, columnIndex) => {
-    Array.from(colEl.querySelectorAll(":scope > .wb-field")).forEach((wrapper) => {
-      fields.push(fieldConfigFromWrapper(wrapper, columnIndex));
+  fieldsWraps.forEach((fieldsWrap, blockIndex) => {
+    const columnEls = Array.from(fieldsWrap.querySelectorAll(":scope > .wb-column"));
+    columnEls.forEach((colEl, columnIndex) => {
+      Array.from(colEl.querySelectorAll(":scope > .wb-field")).forEach((wrapper) => {
+        fields.push(fieldConfigFromWrapper(wrapper, columnIndex, blockIndex));
+      });
     });
   });
 
-  return { id, title, columns, collapsible: sectionEl.tagName === "DETAILS", ...(sectionEl.dataset.unsectioned === "true" ? { unsectioned: true } : {}), fields };
+  return {
+    id,
+    title,
+    columns,
+    collapsible: sectionEl.tagName === "DETAILS",
+    ...(sectionEl.dataset.unsectioned === "true" ? { unsectioned: true } : {}),
+    ...(blockColumnCounts.length > 1 ? { blocks: blockColumnCounts } : {}),
+    fields,
+  };
 }
 
 /** Reconstructs a full workbook config from a mounted `.lms-workbook` element. */

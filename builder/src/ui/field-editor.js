@@ -6,7 +6,7 @@ import {
   DISPLAY_ONLY_FIELD_TYPES,
   IMAGE_FIELD_TYPES,
 } from "../../../src/fields/index.js";
-import { groupByColumn } from "../../../src/core/column-layout.js";
+import { groupByColumn, groupByBlockThenColumn } from "../../../src/core/column-layout.js";
 import { TABLE_CELL_TYPES } from "../../../src/fields/table.js";
 
 function renderOptionsEditor(field, onChange, onLightChange) {
@@ -452,7 +452,7 @@ function renderChecklistItemsEditor(field, onChange, onLightChange) {
   return wrap;
 }
 
-function buildDefaultFieldConfig(type, column) {
+function buildDefaultFieldConfig(type, column, block) {
   const needsOptions = OPTIONS_FIELD_TYPES.has(type);
   const isImage = IMAGE_FIELD_TYPES.has(type);
   return {
@@ -460,6 +460,7 @@ function buildDefaultFieldConfig(type, column) {
     label: isImage || type === "content" ? "" : "New question",
     ...(type === "content" ? { html: "<p><br></p>" } : {}),
     column: column || 0,
+    ...(block ? { block } : {}),
     ...(needsOptions ? { options: ["Option 1", "Option 2"] } : {}),
     ...(type === "table" ? { columns: defaultTableColumns(), cells: defaultTableCells(), initialRows: 1, allowAddRows: false } : {}),
     ...(isImage ? { src: "", alt: "", caption: "" } : {}),
@@ -685,17 +686,17 @@ function renderFieldRow({ field, index, fieldCount, state, worksheetId, sectionI
  * is just another type in this same list, not a separate add-image
  * mechanism.
  */
-export function renderFieldEditor(container, state, worksheetId, sectionId, section, onChange, onLightChange) {
-  container.innerHTML = "";
-
-  const columnCount = section.columns || 1;
-  const fieldCount = section.fields.length;
-
+/**
+ * Renders one layout block's columns (the body of the loop `renderFieldEditor`
+ * runs once per block). Factored out so a named section with more than one
+ * layout block can repeat it, while a section with just one block (or any
+ * standalone/placeholder group, which never has multiple blocks) renders
+ * identically to before.
+ */
+function renderLayoutBlock({ columnCount, columns, blockIndex, fieldCount, state, worksheetId, sectionId, section, onChange, onLightChange }) {
   const fieldList = document.createElement("div");
   fieldList.className = "builder-field-list";
   fieldList.dataset.columns = String(columnCount);
-
-  const columns = groupByColumn(section.fields, columnCount, (field) => field.column);
 
   columns.forEach((column, columnIndex) => {
     const columnEl = document.createElement("div");
@@ -740,7 +741,7 @@ export function renderFieldEditor(container, state, worksheetId, sectionId, sect
       const raw = event.dataTransfer?.getData("application/x-builder-field-ids");
       if (!raw) return;
       const ids = JSON.parse(raw);
-      state.moveFields(worksheetId, ids, sectionId, columnIndex);
+      state.moveFields(worksheetId, ids, sectionId, columnIndex, undefined, blockIndex);
       onChange();
     });
     columnEl.appendChild(dropZone);
@@ -754,7 +755,7 @@ export function renderFieldEditor(container, state, worksheetId, sectionId, sect
     addToColumnBtn.textContent = "+ Add question";
     addToColumnBtn.title = "Add a new question of the selected type to the end of this column";
     addToColumnBtn.addEventListener("click", () => {
-      const fieldConfig = buildDefaultFieldConfig(typeSelect.value, columnIndex);
+      const fieldConfig = buildDefaultFieldConfig(typeSelect.value, columnIndex, blockIndex);
       const targetSection = sectionId == null
         ? state.addStandaloneSection(worksheetId, { columns: columnCount })
         : null;
@@ -769,5 +770,86 @@ export function renderFieldEditor(container, state, worksheetId, sectionId, sect
     fieldList.appendChild(columnEl);
   });
 
-  container.appendChild(fieldList);
+  return fieldList;
+}
+
+export function renderFieldEditor(container, state, worksheetId, sectionId, section, onChange, onLightChange) {
+  container.innerHTML = "";
+
+  // Only a true named section (not standalone, not the "add new standalone"
+  // placeholder) can hold more than one layout block — standalone questions
+  // already get independent column counts per block by stacking separate
+  // no-section layouts instead (see renderStandaloneLayoutButton).
+  const supportsLayoutBlocks = sectionId != null && !section.unsectioned;
+  const blockColumnCounts = supportsLayoutBlocks && Array.isArray(section.blocks) && section.blocks.length
+    ? section.blocks
+    : [section.columns || 1];
+
+  const fieldCount = section.fields.length;
+  const blockGroups = blockColumnCounts.length > 1
+    ? groupByBlockThenColumn(section.fields, blockColumnCounts, (field) => field.block, (field) => field.column)
+    : [{ columnCount: blockColumnCounts[0], columns: groupByColumn(section.fields, blockColumnCounts[0], (field) => field.column) }];
+
+  blockGroups.forEach(({ columnCount, columns }, blockIndex) => {
+    const blockWrap = document.createElement("div");
+    blockWrap.className = "builder-layout-block";
+
+    // Block 0's column count is controlled by the section's own "Columns"
+    // control, rendered above this list by the section editor — only
+    // blocks added after it (via "+ Start new layout in this section")
+    // get their own inline control here.
+    if (supportsLayoutBlocks && blockIndex > 0) {
+      const blockHeader = document.createElement("div");
+      blockHeader.className = "builder-layout-block-header";
+
+      const blockColumnsLabel = document.createElement("label");
+      blockColumnsLabel.className = "builder-columns-control";
+      blockColumnsLabel.textContent = "Columns";
+      const blockColumnsSelect = document.createElement("select");
+      [1, 2, 3].forEach((n) => {
+        const opt = document.createElement("option");
+        opt.value = String(n);
+        opt.textContent = String(n);
+        blockColumnsSelect.appendChild(opt);
+      });
+      blockColumnsSelect.value = String(columnCount);
+      blockColumnsSelect.addEventListener("change", () => {
+        state.updateSectionBlock(worksheetId, sectionId, blockIndex, Number(blockColumnsSelect.value));
+        onChange();
+      });
+      blockColumnsLabel.appendChild(blockColumnsSelect);
+      blockHeader.appendChild(blockColumnsLabel);
+
+      const removeBlockBtn = document.createElement("button");
+      removeBlockBtn.type = "button";
+      removeBlockBtn.className = "builder-remove-btn builder-remove-layout-block-btn";
+      removeBlockBtn.textContent = "Remove layout";
+      removeBlockBtn.title = "Remove this layout — its questions move up into the layout above";
+      removeBlockBtn.addEventListener("click", () => {
+        state.removeSectionBlock(worksheetId, sectionId, blockIndex);
+        onChange();
+      });
+      blockHeader.appendChild(removeBlockBtn);
+
+      blockWrap.appendChild(blockHeader);
+    }
+
+    blockWrap.appendChild(
+      renderLayoutBlock({ columnCount, columns, blockIndex, fieldCount, state, worksheetId, sectionId, section, onChange, onLightChange })
+    );
+    container.appendChild(blockWrap);
+  });
+
+  if (supportsLayoutBlocks) {
+    const addLayoutBtn = document.createElement("button");
+    addLayoutBtn.type = "button";
+    addLayoutBtn.className = "builder-add-layout-block-btn";
+    addLayoutBtn.textContent = "+ Start new layout in this section";
+    addLayoutBtn.title = "Add another group of questions below with its own column count, still inside this section";
+    addLayoutBtn.addEventListener("click", () => {
+      state.addSectionLayoutBlock(worksheetId, sectionId);
+      onChange();
+    });
+    container.appendChild(addLayoutBtn);
+  }
 }

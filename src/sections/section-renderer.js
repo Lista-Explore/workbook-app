@@ -1,5 +1,5 @@
 import { FieldRegistry } from "../fields/registry.js";
-import { groupByColumn } from "../core/column-layout.js";
+import { groupByColumn, groupByBlockThenColumn } from "../core/column-layout.js";
 
 /**
  * Renders a section: a collapsible <details>/<summary> wrapper (every
@@ -39,36 +39,53 @@ export function renderSection(section, { values = {}, onFieldChange } = {}) {
     container.appendChild(summary);
   }
 
-  const fieldsContainer = document.createElement("div");
-  fieldsContainer.className = "wb-section-fields";
-  const columnCount = section.columns || 1;
-  fieldsContainer.dataset.columns = String(columnCount);
+  const renderColumns = (columnCount, columns) => {
+    const fieldsContainer = document.createElement("div");
+    fieldsContainer.className = "wb-section-fields";
+    fieldsContainer.dataset.columns = String(columnCount);
 
-  const columns = groupByColumn(section.fields || [], columnCount, (field) => field.column);
+    for (const column of columns) {
+      const columnEl = document.createElement("div");
+      columnEl.className = "wb-column";
 
-  for (const column of columns) {
-    const columnEl = document.createElement("div");
-    columnEl.className = "wb-column";
+      for (const { item: field } of column) {
+        const module = FieldRegistry.get(field.type);
+        const fieldEl = module.render(field, values[field.id]);
+        columnEl.appendChild(fieldEl);
 
-    for (const { item: field } of column) {
-      const module = FieldRegistry.get(field.type);
-      const fieldEl = module.render(field, values[field.id]);
-      columnEl.appendChild(fieldEl);
-
-      if (onFieldChange) {
-        fieldEl.addEventListener("input", () => {
-          onFieldChange(field.id, module.getValue(fieldEl));
-        });
-        fieldEl.addEventListener("change", () => {
-          onFieldChange(field.id, module.getValue(fieldEl));
-        });
+        if (onFieldChange) {
+          fieldEl.addEventListener("input", () => {
+            onFieldChange(field.id, module.getValue(fieldEl));
+          });
+          fieldEl.addEventListener("change", () => {
+            onFieldChange(field.id, module.getValue(fieldEl));
+          });
+        }
       }
+
+      fieldsContainer.appendChild(columnEl);
     }
 
-    fieldsContainer.appendChild(columnEl);
-  }
+    container.appendChild(fieldsContainer);
+  };
 
-  container.appendChild(fieldsContainer);
+  // A named section can hold more than one layout block — each with its own
+  // column count, authored in the Builder via "+ Start new layout in this
+  // section" — rendered here as separate .wb-section-fields stacked under
+  // the one shared collapsible banner. A section without extra blocks (the
+  // vast majority) renders exactly as before: a single block.
+  const blockColumnCounts = !section.unsectioned && Array.isArray(section.blocks) && section.blocks.length
+    ? section.blocks
+    : [section.columns || 1];
+
+  if (blockColumnCounts.length > 1) {
+    const blocks = groupByBlockThenColumn(section.fields || [], blockColumnCounts, (field) => field.block, (field) => field.column);
+    for (const { columnCount, columns } of blocks) renderColumns(columnCount, columns);
+  } else {
+    const columnCount = blockColumnCounts[0];
+    const columns = groupByColumn(section.fields || [], columnCount, (field) => field.column);
+    renderColumns(columnCount, columns);
+  }
 
   return container;
 }

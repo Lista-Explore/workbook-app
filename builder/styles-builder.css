@@ -374,6 +374,29 @@ input.builder-section-title-input:focus {
   flex-direction: column;
 }
 
+/* Wraps one layout block inside a section — plain unless the section has
+   more than one, in which case extra blocks (index > 0) get a header row
+   with their own Columns control, set off from the block above by a
+   divider so it's clear they're a separate layout, not more of the same
+   column grid. */
+.builder-layout-block + .builder-layout-block {
+  margin-top: 1em;
+  padding-top: 1em;
+  border-top: 1px dashed var(--bd-border-strong);
+}
+
+.builder-layout-block-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  margin-bottom: 0.6em;
+}
+
+.builder-add-layout-block-btn {
+  align-self: flex-start;
+  margin-top: 0.6em;
+}
+
 /* Mirrors the Runtime's own [data-columns] grid so the editor shows the
    same column layout the student will actually see, not just the preview:
    each grid cell is one independent vertical stack (.builder-field-column),

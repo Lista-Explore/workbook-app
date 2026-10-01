@@ -261,6 +261,7 @@ export const table = {
         const isInputRow = cellRow.some((cell) => TEXTUAL_TYPES.has(cell.type));
         appendCellRow(tbody, field, cellRow, isInputRow ? rows[valueIndex++] || {} : {}, isInputRow ? "wb-table-input-row" : "wb-table-static-row");
       });
+      if (Array.isArray(value) && answerCells(cells).length) for (; valueIndex < rows.length; valueIndex++) appendCellRow(tbody, field, templateRow(cells), rows[valueIndex] || {});
       tableEl.appendChild(tbody);
     } else {
       const thead = document.createElement("thead");
@@ -331,6 +332,8 @@ export const table = {
         const isInputRow = cellRow.some((cell) => TEXTUAL_TYPES.has(cell.type));
         appendCellRow(tbody, field, cellRow, isInputRow ? rows[valueIndex++] || {} : {}, isInputRow ? "wb-table-input-row" : "wb-table-static-row");
       });
+      // Preserve learner-added rows when restoring saved data or PDF answers.
+      if (Array.isArray(value) && answerCells(safeCells(field)).length) for (; valueIndex < rows.length; valueIndex++) appendCellRow(tbody, field, templateRow(safeCells(field)), rows[valueIndex] || {});
       renumberControls(tbody, field, safeCells(field));
       return;
     }
