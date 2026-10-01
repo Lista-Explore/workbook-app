@@ -1,5 +1,13 @@
 import { createWrapper, createLabel } from "./field-helpers.js";
 
+function safeDecode(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 /**
  * Personalised text: a template whose {{tokens}} fill in live from the
  * learner's scores and answers — e.g. an AI prompt that already contains
@@ -10,7 +18,11 @@ import { createWrapper, createLabel } from "./field-helpers.js";
 export const scoredText = {
   render(field) {
     const wrapper = createWrapper(field);
-    wrapper.dataset.template = field.template || "";
+    // Percent-encoded: the template is multi-line free text, and LMS page
+    // editors rewrite raw line breaks, quotes and "- " / "1." lines inside
+    // attributes (turning them into list markup and truncating the attribute).
+    // Encoded, it is one inert token that survives any editor round trip.
+    wrapper.dataset.templateEnc = encodeURIComponent(field.template || "");
     wrapper.appendChild(createLabel(field, null));
 
     const variant = field.variant === "callout" ? "callout" : "prompt";
@@ -82,7 +94,9 @@ export const scoredText = {
       label: labelEl
         ? [...labelEl.childNodes].filter((n) => n.nodeType === Node.TEXT_NODE).map((n) => n.textContent).join("").trim()
         : "",
-      template: wrapper.dataset.template || "",
+      template: wrapper.dataset.templateEnc != null
+        ? safeDecode(wrapper.dataset.templateEnc)
+        : wrapper.dataset.template || "", // pages published before encoding
       variant: box?.dataset.variant === "callout" ? "callout" : "prompt",
       copyButton: box?.dataset.copy !== "false",
       copyLabel: wrapper.querySelector(".wb-scored-text-copy")?.textContent || "",

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { registerAllFields } from "../../src/fields/index.js";
+import { FieldRegistry } from "../../src/fields/registry.js";
 import { renderWorkbook } from "../../src/core/renderer.js";
 import { hydrateWorkbook } from "../../src/core/hydrate.js";
 import { domToConfig } from "../../src/core/dom-config.js";
@@ -246,4 +247,21 @@ describe("PDF export and import", () => {
     const imported = await importWorkbookPdf(config, bytes, {});
     expect(imported.data.worksheets.ws1.profile).toEqual({ communication: 40, decision: 12 });
   }, 30000);
+});
+
+describe("personalised text survives page editors", () => {
+  it("keeps multi-line templates with quotes, lists and markup out of raw attributes", () => {
+    const template = 'Scores:\n- A: {{communication.score}}/40\n1. "Quoted" <b>bold</b> & more\n';
+    const config = { id: "t", title: "T", worksheets: [{ id: "w", sections: [{ id: "s", fields: [{ id: "p", type: "scored-text", label: "P", template }] }] }] };
+    const mount = document.createElement("div");
+    renderWorkbook(config, mount);
+    const html = mount.innerHTML;
+    expect(html).not.toMatch(/data-template="/);
+    expect(html).not.toContain("<b>bold</b> &");
+    expect(domToConfig(mount).worksheets[0].sections[0].fields[0].template).toBe(template);
+    // older published pages with a raw data-template still read back
+    const legacy = document.createElement("div");
+    legacy.innerHTML = '<div class="wb-field" data-field-id="p" data-field-type="scored-text" data-template="Old {{x}}"><label class="wb-field-label"></label></div>';
+    expect(FieldRegistry.get("scored-text").configFromWrapper(legacy.firstChild).template).toBe("Old {{x}}");
+  });
 });
