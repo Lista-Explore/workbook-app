@@ -565,3 +565,404 @@ details.wb-section:not([open]) > .wb-section-fields {
   margin-top: 0;
   margin-bottom: 0.55em;
 }
+
+/* Rating scale, score summary and personalised text (cumulative scoring).
+   Neutral grayscale like the rest of the Runtime; tones use soft status
+   colors only so a result reads at a glance. */
+
+.lms-workbook {
+  --wb-tone-positive: #17663a;
+  --wb-tone-positive-bg: #e8f5ee;
+  --wb-tone-neutral: #8a5a00;
+  --wb-tone-neutral-bg: #fdf3dc;
+  --wb-tone-attention: #a5361c;
+  --wb-tone-attention-bg: #fcebe7;
+}
+
+.wb-scale-description {
+  margin: 0 0 0.6em;
+  color: var(--wb-muted);
+}
+
+.wb-scale-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3em 1.2em;
+  margin: 0 0 0.7em;
+  padding: 0.55em 0.8em;
+  background: var(--wb-bg);
+  border: 1px solid var(--wb-border);
+  border-radius: 8px;
+  font-size: 0.88em;
+}
+
+.wb-scale-legend-item {
+  display: flex;
+  gap: 0.45em;
+  margin: 0;
+}
+
+.wb-scale-legend dt {
+  font-weight: 700;
+  min-width: 1.2em;
+}
+
+.wb-scale-legend dd {
+  margin: 0;
+  color: var(--wb-muted);
+}
+
+.wb-scale-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.wb-scale-table th,
+.wb-scale-table td {
+  padding: 0.5em 0.4em;
+  border-bottom: 1px solid var(--wb-border);
+  vertical-align: middle;
+}
+
+.wb-scale-table thead th {
+  font-size: 0.85em;
+  color: var(--wb-muted);
+  font-weight: 600;
+  text-align: center;
+}
+
+.wb-scale-table thead .wb-scale-statement-head {
+  text-align: left;
+}
+
+.wb-scale-statement {
+  text-align: left;
+  font-weight: 400;
+  padding-right: 1em;
+  line-height: 1.4;
+}
+
+.wb-scale-cell {
+  text-align: center;
+  width: 2.8em;
+}
+
+.wb-scale-choice {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15em;
+  min-width: 2.4em;
+  min-height: 2.4em;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.wb-scale-choice input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: var(--wb-accent);
+  cursor: pointer;
+}
+
+.wb-scale-choice-num {
+  display: none;
+  font-size: 0.8em;
+  color: var(--wb-muted);
+}
+
+.wb-scale-choice:hover {
+  background: var(--wb-accent-soft);
+}
+
+.wb-scale-row:has(input:checked) .wb-scale-statement {
+  color: var(--wb-muted);
+}
+
+.wb-score-readout {
+  margin-top: 0.8em;
+  padding: 0.8em 1em;
+  background: var(--wb-bg);
+  border: 1px solid var(--wb-border);
+  border-radius: 10px;
+}
+
+.wb-score-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1em;
+  flex-wrap: wrap;
+}
+
+.wb-score-label {
+  font-weight: 600;
+}
+
+.wb-score-value {
+  font-size: 1.6em;
+  line-height: 1;
+}
+
+.wb-score-max {
+  color: var(--wb-muted);
+  font-weight: 600;
+}
+
+.wb-score-meter {
+  height: 7px;
+  margin: 0.55em 0 0.4em;
+  border-radius: 99px;
+  background: var(--wb-border);
+  overflow: hidden;
+}
+
+.wb-score-meter-fill {
+  height: 100%;
+  width: 0;
+  background: var(--wb-accent);
+  border-radius: 99px;
+  transition: width 0.25s ease;
+}
+
+.wb-score-progress {
+  font-size: 0.85em;
+  color: var(--wb-muted);
+}
+
+.wb-score-band {
+  margin-top: 0.6em;
+  padding: 0.55em 0.8em;
+  border-radius: 8px;
+  background: var(--wb-accent-soft);
+  line-height: 1.4;
+}
+
+.wb-score-band[hidden] {
+  display: none;
+}
+
+.wb-score-band-label {
+  display: block;
+}
+
+.wb-score-band-text {
+  display: block;
+  font-size: 0.92em;
+}
+
+.wb-score-band.wb-tone-positive,
+.wb-band-key .wb-tone-positive,
+.wb-scoreboard-result.wb-tone-positive,
+.wb-scoreboard-total-result.wb-tone-positive {
+  background: var(--wb-tone-positive-bg);
+  color: var(--wb-tone-positive);
+}
+
+.wb-score-band.wb-tone-neutral,
+.wb-band-key .wb-tone-neutral,
+.wb-scoreboard-result.wb-tone-neutral,
+.wb-scoreboard-total-result.wb-tone-neutral {
+  background: var(--wb-tone-neutral-bg);
+  color: var(--wb-tone-neutral);
+}
+
+.wb-score-band.wb-tone-attention,
+.wb-band-key .wb-tone-attention,
+.wb-scoreboard-result.wb-tone-attention,
+.wb-scoreboard-total-result.wb-tone-attention {
+  background: var(--wb-tone-attention-bg);
+  color: var(--wb-tone-attention);
+}
+
+.wb-scoreboard-table,
+.wb-band-key {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.wb-scoreboard-table th,
+.wb-scoreboard-table td,
+.wb-band-key th,
+.wb-band-key td {
+  padding: 0.55em 0.7em;
+  border: 1px solid var(--wb-border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.wb-scoreboard-table thead th,
+.wb-band-key thead th {
+  background: var(--wb-bg);
+  font-size: 0.85em;
+  color: var(--wb-muted);
+}
+
+.wb-scoreboard-score,
+.wb-scoreboard-max,
+.wb-scoreboard-total-score,
+.wb-scoreboard-total-max {
+  text-align: center;
+  width: 7em;
+  font-variant-numeric: tabular-nums;
+}
+
+.wb-scoreboard-score input {
+  width: 5em;
+  text-align: center;
+}
+
+.wb-scoreboard-total th,
+.wb-scoreboard-total td {
+  font-weight: 700;
+  background: var(--wb-bg);
+}
+
+.wb-scoreboard-badge {
+  display: inline-block;
+  margin-left: 0.6em;
+  padding: 0.05em 0.55em;
+  border-radius: 99px;
+  font-size: 0.75em;
+  font-weight: 700;
+  background: var(--wb-accent-soft);
+  vertical-align: middle;
+}
+
+.wb-scoreboard-badge[hidden] {
+  display: none;
+}
+
+.wb-is-strongest .wb-scoreboard-badge {
+  background: var(--wb-tone-positive-bg);
+  color: var(--wb-tone-positive);
+}
+
+.wb-is-lowest .wb-scoreboard-badge {
+  background: var(--wb-tone-attention-bg);
+  color: var(--wb-tone-attention);
+}
+
+.wb-is-mismatch .wb-scoreboard-score input {
+  border-color: var(--wb-danger);
+}
+
+.wb-is-mismatch .wb-scoreboard-result {
+  color: var(--wb-danger);
+}
+
+.wb-scoreboard-row[data-status="match"] .wb-scoreboard-result {
+  color: var(--wb-tone-positive);
+}
+
+.wb-scoreboard-note {
+  margin: 0.6em 0 0;
+  font-size: 0.9em;
+  color: var(--wb-muted);
+}
+
+.wb-band-key-slot:not(:empty) {
+  margin-top: 0.9em;
+}
+
+.wb-band-key-range {
+  white-space: nowrap;
+  width: 6em;
+  font-variant-numeric: tabular-nums;
+}
+
+.wb-scored-text {
+  padding: 0.9em 1.1em;
+  border-radius: 10px;
+  border: 1px solid var(--wb-border-strong);
+}
+
+.wb-scored-text-prompt {
+  background: var(--wb-bg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88em;
+}
+
+.wb-scored-text-callout {
+  background: var(--wb-accent-soft);
+  border-color: var(--wb-border);
+}
+
+.wb-scored-text-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+
+.wb-token-missing {
+  background: var(--wb-tone-neutral-bg);
+  color: var(--wb-tone-neutral);
+  border-radius: 4px;
+  padding: 0 0.25em;
+}
+
+.wb-scored-text-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  margin-top: 0.6em;
+}
+
+.wb-scored-text-copy {
+  font: inherit;
+  padding: 0.45em 0.95em;
+  border: 1px solid var(--wb-border-strong);
+  border-radius: 8px;
+  background: var(--wb-surface);
+  color: var(--wb-text);
+  cursor: pointer;
+}
+
+.wb-scored-text-copy:hover {
+  background: var(--wb-accent-soft);
+}
+
+.wb-scored-text-status {
+  font-size: 0.85em;
+  color: var(--wb-muted);
+}
+
+@media (max-width: 640px) {
+  .wb-scale-table thead {
+    display: none;
+  }
+
+  .wb-scale-table,
+  .wb-scale-table tbody {
+    display: block;
+  }
+
+  .wb-scale-row {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 0.6em 0;
+    border-bottom: 1px solid var(--wb-border);
+  }
+
+  .wb-scale-table th.wb-scale-statement,
+  .wb-scale-table td {
+    border-bottom: none;
+  }
+
+  .wb-scale-statement {
+    flex: 0 0 100%;
+    padding-bottom: 0.3em;
+  }
+
+  .wb-scale-cell {
+    flex: 1 1 0;
+    width: auto;
+    padding: 0.1em;
+  }
+
+  .wb-scale-choice-num {
+    display: block;
+  }
+}

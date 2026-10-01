@@ -27,6 +27,9 @@ import { signature } from "./signature.js";
 import { content } from "./content.js";
 import { image } from "./image.js";
 import { table } from "./table.js";
+import { scale } from "./scale.js";
+import { scoreboard } from "./scoreboard.js";
+import { scoredText } from "./scored-text.js";
 
 export function registerAllFields() {
   FieldRegistry.register("content", content);
@@ -57,6 +60,9 @@ export function registerAllFields() {
   FieldRegistry.register("signature", signature);
   FieldRegistry.register("image", image);
   FieldRegistry.register("table", table);
+  FieldRegistry.register("scale", scale);
+  FieldRegistry.register("scoreboard", scoreboard);
+  FieldRegistry.register("scored-text", scoredText);
 }
 
 export const DESIGNER_FIELD_TYPES = [
@@ -83,9 +89,15 @@ export const DESIGNER_FIELD_TYPES = [
   { type: "datalist", name: "Text with suggestions" },
   { type: "content", name: "Content" },
   { type: "table", name: "Table" },
+  { type: "scale", name: "Rating scale (scored statements)" },
+  { type: "scoreboard", name: "Score summary (adds up scores)" },
+  { type: "scored-text", name: "Personalised text (fills in from scores)" },
   { type: "signature", name: "Signature" },
 ];
 
 export const OPTIONS_FIELD_TYPES = new Set(["dropdown", "radio", "checkbox-group", "datalist", "checklist"]);
 export const DISPLAY_ONLY_FIELD_TYPES = new Set(["content", "heading", "instructions", "statement", "image"]);
+// Fields computed from other fields: nothing for the learner to answer, so no
+// "required" option and they never count toward progress.
+export const DERIVED_FIELD_TYPES = new Set(["scoreboard", "scored-text"]);
 export const IMAGE_FIELD_TYPES = new Set(["image"]);

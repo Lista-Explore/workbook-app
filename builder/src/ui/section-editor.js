@@ -40,6 +40,56 @@ function renderStandaloneLayoutButton(state, worksheetId, onChange, afterSection
   return addLayoutBtn;
 }
 
+/** "+ Section / + No-section layout" inserter shown between blocks, so content can be added anywhere, not just at the end. */
+function renderInsertBar(state, worksheetId, index, onChange) {
+  const bar = document.createElement("div");
+  bar.className = "builder-insert-bar";
+  bar.dataset.insertIndex = String(index);
+
+  const addLayout = document.createElement("button");
+  addLayout.type = "button";
+  addLayout.className = "builder-insert-layout-btn";
+  addLayout.textContent = "+ No-section layout here";
+  addLayout.addEventListener("click", () => {
+    state.addStandaloneSection(worksheetId, { columns: 1, index });
+    onChange();
+  });
+
+  const addSection = document.createElement("button");
+  addSection.type = "button";
+  addSection.className = "builder-insert-section-btn";
+  addSection.textContent = "+ Section here";
+  addSection.addEventListener("click", () => {
+    state.addSection(worksheetId, { title: "New section", index });
+    onChange();
+  });
+
+  bar.appendChild(addLayout);
+  bar.appendChild(addSection);
+  return bar;
+}
+
+/** Up/down controls that move a whole section or no-section layout. */
+function renderMoveControls(state, worksheetId, section, index, count, onChange) {
+  const wrap = document.createElement("div");
+  wrap.className = "builder-section-move-controls";
+  [["▲", "Move section up", -1], ["▼", "Move section down", 1]].forEach(([glyph, label, delta]) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "builder-move-btn builder-section-move-btn";
+    btn.textContent = glyph;
+    btn.title = label;
+    btn.setAttribute("aria-label", label);
+    btn.disabled = index + delta < 0 || index + delta >= count;
+    btn.addEventListener("click", () => {
+      state.reorderSection(worksheetId, section.id, index + delta);
+      onChange();
+    });
+    wrap.appendChild(btn);
+  });
+  return wrap;
+}
+
 /**
  * `onChange` triggers a full rebuild (used for anything that adds/removes
  * a section or field, or otherwise changes what's on screen). `onLightChange`
@@ -52,7 +102,8 @@ export function renderSectionEditor(container, state, worksheetId, onChange, onL
   const worksheet = state.workbook.worksheets.find((w) => w.id === worksheetId);
   if (!worksheet) return;
 
-  worksheet.sections.forEach((section) => {
+  worksheet.sections.forEach((section, sectionIndex) => {
+    container.appendChild(renderInsertBar(state, worksheetId, sectionIndex, onChange));
     if (section.unsectioned) {
       const block = document.createElement("div");
       block.className = "builder-standalone-block";
@@ -60,6 +111,7 @@ export function renderSectionEditor(container, state, worksheetId, onChange, onL
       const controls = document.createElement("div");
       controls.className = "builder-standalone-controls";
       controls.appendChild(renderColumnsControl(section, state, worksheetId, onChange));
+      controls.appendChild(renderMoveControls(state, worksheetId, section, sectionIndex, worksheet.sections.length, onChange));
       const fields = document.createElement("div");
       fields.className = "builder-fields-container";
       renderFieldEditor(fields, state, worksheetId, section.id, section, onChange, onLightChange);
@@ -118,6 +170,7 @@ export function renderSectionEditor(container, state, worksheetId, onChange, onL
     renderFieldEditor(fieldsContainer, state, worksheetId, section.id, section, onChange, onLightChange);
 
     card.appendChild(titleInput);
+    card.appendChild(renderMoveControls(state, worksheetId, section, sectionIndex, worksheet.sections.length, onChange));
     card.appendChild(columnsLabel);
     card.appendChild(startCollapsedLabel);
     card.appendChild(fieldsContainer);
@@ -128,6 +181,7 @@ export function renderSectionEditor(container, state, worksheetId, onChange, onL
 
   const addActions = document.createElement("div");
   addActions.className = "builder-add-actions";
+
 
   const addStandaloneLayoutBtn = renderStandaloneLayoutButton(state, worksheetId, onChange);
 

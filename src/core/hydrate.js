@@ -7,6 +7,7 @@ import { domToConfig } from "./dom-config.js";
 import { selectTab, showWorksheetPanel } from "./navigation.js";
 import { syncChecklistState } from "../fields/checklist.js";
 import { wireTableAddRow } from "../fields/table.js";
+import { wireScoring, refreshScoring } from "./scoring.js";
 
 const AUTOSAVE_DELAY_MS = 400;
 
@@ -137,6 +138,10 @@ export async function hydrateWorkbook(rootEl, { storage } = {}) {
     wireTableAddRow(wrapper);
   });
 
+  // Live scores, score summaries and personalised text — works on the static
+  // markup the same way as on a freshly rendered workbook.
+  wireScoring(rootEl);
+
   const adapter = {
     config,
     async exportPDF() {
@@ -152,6 +157,7 @@ export async function hydrateWorkbook(rootEl, { storage } = {}) {
         const value = valueFor(wrapper.dataset.fieldId);
         if (value !== undefined) field.setValue(wrapper, value);
       }
+      refreshScoring(rootEl);
       await workbookStorage.set("state", data);
     },
     async clear() {
@@ -161,6 +167,7 @@ export async function hydrateWorkbook(rootEl, { storage } = {}) {
         if (!FieldRegistry.has(type)) continue;
         FieldRegistry.get(type).setValue(wrapper, undefined);
       }
+      refreshScoring(rootEl);
       await workbookStorage.delete("state");
     },
   };

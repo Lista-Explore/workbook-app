@@ -4,6 +4,9 @@ import fontkit from "../vendor/fontkit.esm.js";
 import { DISPLAY_ONLY_FIELD_TYPES } from "../fields/index.js";
 import { renderContent } from "./content-renderer.js";
 import { groupByColumn, groupByBlockThenColumn } from "../core/column-layout.js";
+import {
+  SCORING_TYPES, scalePoints, scaleStatements, scoreScale, resolveScoreboard, renderTemplate, snapshotFromConfig,
+} from "../core/scoring.js";
 
 /**
  * Escape text for inclusion in HTML.  Mirrors what `document.createElement('div').textContent`
@@ -1013,6 +1016,196 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
   }
 }
 
+const SCORE_STATUS_TEXT = { match: "Matches your ratings", mismatch: "Doesn't match - recheck", pending: "Finish rating this area first" };
+const SCORE_HEADER_FILL = rgb(0.93, 0.94, 0.96);
+const SCORE_RULE = rgb(0.82, 0.84, 0.87);
+const SCORE_TONE = { positive: rgb(0.09, 0.4, 0.23), neutral: rgb(0.54, 0.35, 0), attention: rgb(0.65, 0.21, 0.11) };
+
+/**
+ * Lays out a scoring field (rating scale, score summary, personalised text)
+ * as a list of items — { height, draw({ page, x, y }), row } — that the
+ * paged drawer flows across pages. `header` is repeated at the top of every
+ * page the body rows continue onto. Scores are computed from the same
+ * engine the screen uses, so the PDF always shows what the learner saw.
+ */
+function scoreItems({ field, snapshot, form, font, boldFont, width }) {
+  const items = [];
+  let header = null;
+  const textColor = rgb(0, 0, 0);
+  const muted = rgb(0.4, 0.4, 0.4);
+  const lines = (text, f, size, w) => wrapText(text, f, size, w);
+
+  if (field.label) {
+    const labelLines = lines(field.label, boldFont, 10, width);
+    items.push({
+      height: labelLines.length * LINE_HEIGHT + 4,
+      draw: ({ page, x, y }) => drawFieldLabel({ page, field, boldFont, x, y, width }),
+    });
+  }
+
+  if (field.type === "scale") {
+    const points = scalePoints(field);
+    const statements = scaleStatements(field);
+    const answers = Array.isArray(snapshot.fields.get(field.id)?.value) ? snapshot.fields.get(field.id).value : [];
+    const colW = Math.min(36, Math.max(24, Math.floor((width * 0.5) / points.length)));
+    const stmtW = width - colW * points.length;
+
+    if (points.some((p) => p.label)) {
+      const legend = points.filter((p) => p.label).map((p) => `${p.value} = ${p.label}`).join("   ");
+      const legendLines = lines(legend, font, 8.5, width);
+      items.push({
+        height: legendLines.length * 11 + 6,
+        draw: ({ page, x, y }) => legendLines.forEach((line, i) => page.drawText(line, { x, y: y - 9 - i * 11, size: 8.5, font, color: muted })),
+      });
+    }
+
+    header = {
+      height: 18,
+      draw: ({ page, x, y }) => {
+        page.drawRectangle({ x, y: y - 18, width, height: 18, color: SCORE_HEADER_FILL });
+        page.drawText("Statement", { x: x + 4, y: y - 12, size: 8.5, font: boldFont, color: muted });
+        points.forEach((point, i) => {
+          const label = String(point.value);
+          const w = boldFont.widthOfTextAtSize(label, 9);
+          page.drawText(label, { x: x + stmtW + i * colW + (colW - w) / 2, y: y - 12, size: 9, font: boldFont, color: muted });
+        });
+      },
+    };
+    items.push({ ...header, header: true });
+
+    statements.forEach((statement, index) => {
+      const stmtLines = lines(statement, font, 9, stmtW - 12);
+      const height = Math.max(26, stmtLines.length * 12 + 10);
+      items.push({
+        height,
+        row: true,
+        draw: ({ page, x, y }) => {
+          page.drawLine({ start: { x, y: y - height }, end: { x: x + width, y: y - height }, color: SCORE_RULE, thickness: 0.5 });
+          stmtLines.forEach((line, i) => page.drawText(line, { x: x + 4, y: y - 14 - i * 12, size: 9, font, color: textColor }));
+          const group = form.createRadioGroup(`${field.id}__scale__${index}`);
+          points.forEach((point, i) => {
+            group.addOptionToPage(String(point.value), page, { x: x + stmtW + i * colW + colW / 2 - 6, y: y - height / 2 - 6, width: 12, height: 12 });
+          });
+          if (answers[index] != null && points.some((p) => p.value === Number(answers[index]))) group.select(String(Number(answers[index])));
+        },
+      });
+    });
+
+    const result = scoreScale(field, answers);
+    if (field.showScore !== false) {
+      const bandText = result.band ? `${result.band.label}${result.band.text ? ` - ${result.band.text}` : ""}` : "";
+      const bandLines = bandText ? lines(bandText, font, 9, width - 8) : [];
+      items.push({
+        height: 26 + bandLines.length * 12,
+        draw: ({ page, x, y }) => {
+          page.drawText(field.scoreLabel || "Your score", { x: x + 4, y: y - 16, size: 10, font: boldFont, color: textColor });
+          const figure = `${result.score} / ${result.max}`;
+          page.drawText(figure, { x: x + width - boldFont.widthOfTextAtSize(figure, 11) - 4, y: y - 16, size: 11, font: boldFont, color: textColor });
+          const tone = result.band?.tone ? SCORE_TONE[result.band.tone] : textColor;
+          bandLines.forEach((line, i) => page.drawText(line, { x: x + 4, y: y - 29 - i * 12, size: 9, font, color: tone }));
+        },
+      });
+    }
+    return { items, header };
+  }
+
+  if (field.type === "scoreboard") {
+    const result = resolveScoreboard(field, snapshot);
+    const widths = [0.36, 0.17, 0.12, 0.35].map((fraction) => fraction * width);
+    const xs = widths.map((_, i) => widths.slice(0, i).reduce((a, b) => a + b, 0));
+    const heading = [field.areaHeading || "Area", result.mode === "copy" ? "Your score (type it in)" : "Your score", "Out of", "What it means"];
+
+    header = {
+      height: 20,
+      draw: ({ page, x, y }) => {
+        page.drawRectangle({ x, y: y - 20, width, height: 20, color: SCORE_HEADER_FILL });
+        heading.forEach((text, i) => page.drawText(text, { x: x + xs[i] + 4, y: y - 13, size: 8.5, font: boldFont, color: muted }));
+      },
+    };
+    items.push({ ...header, header: true });
+
+    result.rows.forEach((row, index) => {
+      const name = row.label + (field.highlight !== false && result.strongest.includes(row) ? "  (strongest)" : field.highlight !== false && result.lowest.includes(row) ? "  (growth edge)" : "");
+      const nameLines = lines(name, font, 9, widths[0] - 8);
+      const meaning = row.missingSource ? "Rating scale not found"
+        : result.mode === "copy" && row.status !== "match" ? SCORE_STATUS_TEXT[row.status] || ""
+        : row.band ? row.band.label
+        : row.status === "partial" ? `In progress (${row.answered} of ${row.total})` : "";
+      const meaningLines = meaning ? lines(meaning, font, 9, widths[3] - 8) : [];
+      const height = Math.max(24, Math.max(nameLines.length, meaningLines.length) * 12 + 10);
+      items.push({
+        height,
+        row: true,
+        draw: ({ page, x, y }) => {
+          page.drawLine({ start: { x, y: y - height }, end: { x: x + width, y: y - height }, color: SCORE_RULE, thickness: 0.5 });
+          nameLines.forEach((line, i) => page.drawText(line, { x: x + 4, y: y - 14 - i * 12, size: 9, font, color: textColor }));
+          if (result.mode === "copy") {
+            const tf = form.createTextField(`${field.id}__score__${index}`);
+            if (row.score != null) tf.setText(String(row.score));
+            tf.addToPage(page, { x: x + xs[1] + 4, y: y - height / 2 - 9, width: widths[1] - 12, height: 18, font, borderWidth: 1 });
+            tf.setFontSize(10);
+          } else {
+            page.drawText(row.score == null ? "-" : String(row.score), { x: x + xs[1] + 4, y: y - 14, size: 9, font: boldFont, color: textColor });
+          }
+          page.drawText(row.missingSource ? "" : String(row.max), { x: x + xs[2] + 4, y: y - 14, size: 9, font, color: textColor });
+          const tone = row.band?.tone ? SCORE_TONE[row.band.tone] : textColor;
+          meaningLines.forEach((line, i) => page.drawText(line, { x: x + xs[3] + 4, y: y - 14 - i * 12, size: 9, font, color: tone }));
+        },
+      });
+    });
+
+    if (field.showTotal !== false) {
+      const totalLabel = field.totalLabel || "Total";
+      const totalBand = result.band ? result.band.label : "";
+      items.push({
+        height: 24,
+        draw: ({ page, x, y }) => {
+          page.drawRectangle({ x, y: y - 24, width, height: 24, color: SCORE_HEADER_FILL });
+          page.drawText(totalLabel, { x: x + 4, y: y - 15, size: 9.5, font: boldFont, color: textColor });
+          page.drawText(String(result.total), { x: x + xs[1] + 4, y: y - 15, size: 9.5, font: boldFont, color: textColor });
+          page.drawText(String(result.max), { x: x + xs[2] + 4, y: y - 15, size: 9.5, font: boldFont, color: textColor });
+          page.drawText(totalBand, { x: x + xs[3] + 4, y: y - 15, size: 9, font: boldFont, color: result.band?.tone ? SCORE_TONE[result.band.tone] : textColor });
+        },
+      });
+    }
+
+    const note = result.complete
+      ? field.highlight !== false && result.strongest.length
+        ? `Strongest: ${result.strongest.map((r) => r.label).join(" and ")}. Growth edge: ${result.lowest.map((r) => r.label).join(" and ")}.`
+        : ""
+      : `${result.completeCount} of ${result.rows.length} areas complete.`;
+    if (note) {
+      const noteLines = lines(note, font, 9, width - 8);
+      items.push({ height: noteLines.length * 12 + 8, draw: ({ page, x, y }) => noteLines.forEach((line, i) => page.drawText(line, { x: x + 4, y: y - 14 - i * 12, size: 9, font, color: muted })) });
+    }
+
+    if (field.showBandKey && result.keyBands.length) {
+      items.push({ height: 18, draw: ({ page, x, y }) => page.drawText("What the scores mean", { x: x + 4, y: y - 14, size: 9, font: boldFont, color: textColor }) });
+      for (const band of result.keyBands) {
+        const text = `${band.min}-${band.max}: ${band.label}${band.text ? ` - ${band.text}` : ""}`;
+        const bandLines = lines(text, font, 8.5, width - 8);
+        items.push({ height: bandLines.length * 11 + 4, draw: ({ page, x, y }) => bandLines.forEach((line, i) => page.drawText(line, { x: x + 4, y: y - 11 - i * 11, size: 8.5, font, color: muted })) });
+      }
+    }
+    return { items, header };
+  }
+
+  // scored-text: the template, filled in, in a shaded box
+  const { text } = renderTemplate(field.template, snapshot);
+  const textLines = text.split("\n").flatMap((paragraph) => (paragraph.trim() ? lines(paragraph, font, 9, width - 16) : [""]));
+  textLines.forEach((line, i) => {
+    items.push({
+      height: 12.5,
+      row: true,
+      draw: ({ page, x, y }) => {
+        page.drawRectangle({ x, y: y - 12.5, width, height: 12.5, color: rgb(0.96, 0.96, 0.97) });
+        if (line) page.drawText(line, { x: x + 8, y: y - 10, size: 9, font, color: textColor });
+      },
+    });
+  });
+  return { items, header: null };
+}
+
 /** Draws one field — an actual embedded image when available, its display-only text, or its form widget. */
 function drawFieldOrPlaceholder({ form, font, boldFont, page, field, value, x, y, width, embeddedImages, imageErrors }) {
   if (field.type === "content") {
@@ -1057,6 +1250,7 @@ export async function exportWorkbookPdf(config, data) {
   const worksheetsData = (data && data.worksheets) || {};
   config = structuredClone(config);
 
+  const scoringSnapshot = snapshotFromConfig(config, data);
   const pdfDoc = await PDFDocument.create();
   const { font, boldFont } = await embedPoppins(pdfDoc);
   const form = pdfDoc.getForm();
@@ -1209,6 +1403,27 @@ export async function exportWorkbookPdf(config, data) {
       y -= GAP;
     }
 
+    function drawPagedScore(field, x, width) {
+      const { items, header } = scoreItems({ field, snapshot: scoringSnapshot, form, font, boldFont, width });
+      // Keep the label, legend, column header and first row together.
+      const lead = items.findIndex((item) => item.row);
+      const keep = (lead === -1 ? items : items.slice(0, lead + 1)).reduce((sum, item) => sum + item.height, 0);
+      ensureSpace(Math.min(keep, 160));
+      for (const item of items) {
+        if (y - item.height < MARGIN) {
+          ensureSpace(item.height);
+          // A continued table starts with its column header again.
+          if (item.row && header && y - header.height - item.height >= MARGIN) {
+            header.draw({ page, x, y });
+            y -= header.height;
+          }
+        }
+        item.draw({ page, x, y });
+        y -= item.height;
+      }
+      y -= GAP;
+    }
+
     function drawPagedChecklist(field, value, x, width) {
       const labelBottomY = drawFieldLabel({ page, field, boldFont, x, y, width });
       let cursorY = labelBottomY - 4;
@@ -1275,6 +1490,10 @@ export async function exportWorkbookPdf(config, data) {
         }
 
         for (const field of fields) {
+          if (SCORING_TYPES.has(field.type)) {
+            drawPagedScore(field, MARGIN, CONTENT_WIDTH);
+            continue;
+          }
           if (field.type === "table") {
             drawPagedTable(field, wsValues[field.id], MARGIN, CONTENT_WIDTH);
             continue;
@@ -1346,6 +1565,7 @@ export async function exportWorkbookPdf(config, data) {
         const x = MARGIN + colIndex * (colWidth + GAP) + padX;
         for (const { item: field } of column) {
           if (field.type === "content") drawPagedContent(field, x, innerWidth);
+          else if (SCORING_TYPES.has(field.type)) drawPagedScore(field, x, innerWidth);
           else if (field.type === "table") drawPagedTable(field, wsValues[field.id], x, innerWidth);
           else if (field.type === "rich-text" && field._pdfContent) {
             ensureSpace(40 + (field._pdfContent.slices[0]?.height || 0));

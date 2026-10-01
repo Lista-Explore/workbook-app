@@ -1,5 +1,6 @@
 import { sanitizeContent } from "../fields/content.js";
 import { slugify } from "./id-generator.js";
+import { FieldRegistry } from "../fields/registry.js";
 
 /**
  * Reconstructs a workbook config object by reading the already-rendered
@@ -94,6 +95,12 @@ function fieldConfigFromWrapper(wrapper, column, block) {
       content: th.dataset.content || "",
     }));
     return { ...common, columns };
+  }
+  if (type === "scale" || type === "scoreboard" || type === "scored-text") {
+    // These carry their full config in data-* attributes, so the module that
+    // renders them is also the one that reads them back.
+    const { id: _id, type: _type, label: _label, required: _required, ...rest } = FieldRegistry.get(type).configFromWrapper(wrapper);
+    return { ...base, ...rest };
   }
   if (type === "datalist") {
     const options = Array.from(wrapper.querySelectorAll("datalist option")).map((opt) => opt.value);

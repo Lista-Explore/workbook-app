@@ -92,23 +92,26 @@ export class BuilderState {
     return worksheet;
   }
 
-  addSection(worksheetId, { title = "New section", columns = 1 } = {}) {
+  addSection(worksheetId, { title = "New section", columns = 1, index } = {}) {
     const worksheet = this._findWorksheet(worksheetId);
     const id = generateId(title, worksheet.sections.length, this._usedSectionIds);
     // Every section uses the collapsible element — not a per-section choice.
     const section = { id, title, columns, collapsible: true, startCollapsed: false, fields: [] };
-    worksheet.sections.push(section);
+    // `index` inserts at a specific position; omitted = append (unchanged).
+    if (Number.isInteger(index)) worksheet.sections.splice(Math.min(Math.max(index, 0), worksheet.sections.length), 0, section);
+    else worksheet.sections.push(section);
     return section;
   }
 
-  addStandaloneSection(worksheetId, { columns = 1, afterSectionId } = {}) {
+  addStandaloneSection(worksheetId, { columns = 1, afterSectionId, index } = {}) {
     const worksheet = this._findWorksheet(worksheetId);
     const id = generateId("questions", worksheet.sections.length, this._usedSectionIds);
     const section = { id, title: "", columns, unsectioned: true, fields: [] };
     const afterIndex = afterSectionId
       ? worksheet.sections.findIndex((s) => s.id === afterSectionId)
       : -1;
-    if (afterIndex === -1) worksheet.sections.push(section);
+    if (Number.isInteger(index)) worksheet.sections.splice(Math.min(Math.max(index, 0), worksheet.sections.length), 0, section);
+    else if (afterIndex === -1) worksheet.sections.push(section);
     else worksheet.sections.splice(afterIndex + 1, 0, section);
     return section;
   }

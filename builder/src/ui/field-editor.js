@@ -5,7 +5,10 @@ import {
   OPTIONS_FIELD_TYPES,
   DISPLAY_ONLY_FIELD_TYPES,
   IMAGE_FIELD_TYPES,
+  DERIVED_FIELD_TYPES,
 } from "../../../src/fields/index.js";
+import { presetPoints } from "../../../src/core/scoring.js";
+import { renderScaleEditor, renderScoreboardEditor, renderScoredTextEditor } from "./scoring-editors.js";
 import { groupByColumn, groupByBlockThenColumn } from "../../../src/core/column-layout.js";
 import { TABLE_CELL_TYPES } from "../../../src/fields/table.js";
 
@@ -507,7 +510,14 @@ function renderChecklistItemsEditor(field, onChange, onLightChange) {
   return wrap;
 }
 
-function buildDefaultFieldConfig(type, column, block) {
+/** Every rating scale in the workbook (any worksheet), for score summaries to draw from. */
+function workbookScales(state) {
+  return state.toConfig().worksheets.flatMap((worksheet) =>
+    (worksheet.sections || []).flatMap((section) => (section.fields || []).filter((field) => field.type === "scale"))
+  );
+}
+
+function buildDefaultFieldConfig(type, column, block, state) {
   const needsOptions = OPTIONS_FIELD_TYPES.has(type);
   const isImage = IMAGE_FIELD_TYPES.has(type);
   return {
@@ -519,6 +529,13 @@ function buildDefaultFieldConfig(type, column, block) {
     ...(needsOptions ? { options: ["Option 1", "Option 2"] } : {}),
     ...(type === "table" ? { columns: defaultTableColumns(), cells: defaultTableCells(), initialRows: 1, allowAddRows: false } : {}),
     ...(isImage ? { src: "", alt: "", caption: "" } : {}),
+    ...(type === "scale"
+      ? { label: "New rating scale", areaLabel: "", scoreLabel: "Your score", points: presetPoints("1-5"), statements: ["", "", ""], reverse: [false, false, false], bands: [], showScore: true }
+      : {}),
+    ...(type === "scoreboard"
+      ? { label: "Your results", mode: "auto", rows: state ? workbookScales(state).map((scale) => ({ source: scale.id, label: "" })) : [], showTotal: true, totalLabel: "Total", highlight: true, showBandKey: false, bands: [], totalBands: [] }
+      : {}),
+    ...(type === "scored-text" ? { label: "Your summary", template: "", variant: "prompt", copyButton: true } : {}),
   };
 }
 
@@ -664,7 +681,7 @@ function renderFieldRow({ field, index, fieldCount, state, worksheetId, sectionI
     row.appendChild(labelInput);
   }
 
-  if (!DISPLAY_ONLY_FIELD_TYPES.has(field.type) && field.type !== "checkbox") {
+  if (!DISPLAY_ONLY_FIELD_TYPES.has(field.type) && !DERIVED_FIELD_TYPES.has(field.type) && field.type !== "checkbox") {
     const requiredLabel = document.createElement("label");
     const requiredCheckbox = document.createElement("input");
     requiredCheckbox.type = "checkbox";
@@ -688,6 +705,39 @@ function renderFieldRow({ field, index, fieldCount, state, worksheetId, sectionI
         },
         onLightChange
       )
+    );
+  } else if (field.type === "scale") {
+    row.appendChild(
+      renderScaleEditor(field, {
+        onChange: (patch) => {
+          state.updateField(worksheetId, sectionId, field.id, patch);
+          onChange();
+        },
+        onLightChange,
+        otherScales: workbookScales(state).filter((other) => other.id !== field.id),
+      })
+    );
+  } else if (field.type === "scoreboard") {
+    row.appendChild(
+      renderScoreboardEditor(field, {
+        onChange: (patch) => {
+          state.updateField(worksheetId, sectionId, field.id, patch);
+          onChange();
+        },
+        onLightChange,
+        scales: workbookScales(state),
+      })
+    );
+  } else if (field.type === "scored-text") {
+    row.appendChild(
+      renderScoredTextEditor(field, {
+        onChange: (patch) => {
+          state.updateField(worksheetId, sectionId, field.id, patch);
+          onChange();
+        },
+        onLightChange,
+        workbookConfig: state.toConfig(),
+      })
     );
   } else if (field.type === "table") {
     row.appendChild(
@@ -810,7 +860,7 @@ function renderLayoutBlock({ columnCount, columns, blockIndex, fieldCount, state
     addToColumnBtn.textContent = "+ Add question";
     addToColumnBtn.title = "Add a new question of the selected type to the end of this column";
     addToColumnBtn.addEventListener("click", () => {
-      const fieldConfig = buildDefaultFieldConfig(typeSelect.value, columnIndex, blockIndex);
+      const fieldConfig = buildDefaultFieldConfig(typeSelect.value, columnIndex, blockIndex, state);
       const targetSection = sectionId == null
         ? state.addStandaloneSection(worksheetId, { columns: columnCount })
         : null;

@@ -1,4 +1,4 @@
-import { DISPLAY_ONLY_FIELD_TYPES } from "../fields/index.js";
+import { DISPLAY_ONLY_FIELD_TYPES, DERIVED_FIELD_TYPES } from "../fields/index.js";
 
 /**
  * Computes what fraction of required fields across the whole workbook
@@ -14,14 +14,16 @@ export function computeProgress(config, data) {
     const wsData = worksheetsData[worksheet.id] || {};
     for (const section of worksheet.sections || []) {
       for (const field of section.fields || []) {
-        if (!field.required || DISPLAY_ONLY_FIELD_TYPES.has(field.type)) continue;
+        if (!field.required || DISPLAY_ONLY_FIELD_TYPES.has(field.type) || DERIVED_FIELD_TYPES.has(field.type)) continue;
         total += 1;
         const value = wsData[field.id];
-        const isEmpty =
-          value == null ||
-          value === "" ||
-          value === false ||
-          (Array.isArray(value) && value.length === 0);
+        // A rating scale only counts once every statement has a rating.
+        const isEmpty = field.type === "scale"
+          ? !Array.isArray(value) || (field.statements || []).some((_, i) => value[i] == null)
+          : value == null ||
+            value === "" ||
+            value === false ||
+            (Array.isArray(value) && value.length === 0);
         if (!isEmpty) answered += 1;
       }
     }

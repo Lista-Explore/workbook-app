@@ -848,3 +848,147 @@ input.builder-section-title-input:focus {
   align-items: center;
   gap: 0.45em;
 }
+
+/* Scoring editors (rating scale, score summary, personalised text) */
+
+.builder-scoring-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8em;
+  width: 100%;
+  padding: 0.7em 0 0 0.5em;
+  border-top: 1px dashed var(--bd-border-strong);
+  margin-top: 0.2em;
+}
+
+.builder-scoring-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  padding: 0.7em 0.8em;
+  border: 1px solid var(--bd-border);
+  border-radius: 8px;
+}
+
+.builder-scoring-group-title {
+  font-size: 0.95em;
+}
+
+.builder-scoring-hint {
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--bd-muted);
+}
+
+.builder-scoring-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.6em 1em;
+  align-items: end;
+}
+
+.builder-scoring-labelled {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+  font-size: 0.85em;
+  color: var(--bd-muted);
+}
+
+.builder-scoring-labelled input,
+.builder-scoring-labelled select,
+.builder-scoring-labelled textarea,
+.builder-band-row input,
+.builder-band-row select,
+.builder-scale-point-row input,
+.builder-scale-statement-row input[type="text"],
+.builder-scoreboard-row input,
+.builder-scoreboard-row select {
+  background: var(--bd-surface);
+}
+
+.builder-scoring-check {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  font-size: 0.9em;
+}
+
+.builder-scoring-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  align-items: center;
+}
+
+.builder-scoring-btn {
+  align-self: flex-start;
+}
+
+.builder-band-row,
+.builder-scale-point-row,
+.builder-scale-statement-row,
+.builder-scoreboard-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  align-items: center;
+}
+
+.builder-band-range input {
+  width: 4.5em;
+}
+
+.builder-band-label,
+.builder-band-text,
+.builder-scale-point-row input[type="text"],
+.builder-scale-statement-input,
+.builder-scoreboard-row input[type="text"] {
+  flex: 1;
+  min-width: 10em;
+}
+
+.builder-scale-point-row input[type="number"] {
+  width: 4.5em;
+}
+
+.builder-scale-statement-num {
+  min-width: 1.6em;
+  color: var(--bd-muted);
+}
+
+.builder-scale-bulk,
+.builder-scored-text-template {
+  flex: 1 1 18em;
+  width: 100%;
+  font-family: inherit;
+  background: var(--bd-surface);
+}
+
+/* Insert-anywhere bars and section move controls */
+
+.builder-insert-bar {
+  display: flex;
+  gap: 0.5em;
+  justify-content: center;
+  padding: 0.15em 0;
+  opacity: 0.35;
+  transition: opacity 0.15s;
+}
+
+.builder-insert-bar:hover,
+.builder-insert-bar:focus-within {
+  opacity: 1;
+}
+
+.builder-insert-bar button {
+  background: transparent;
+  border-style: dashed;
+  color: var(--bd-muted);
+  font-size: 0.85em;
+}
+
+.builder-section-move-controls {
+  display: inline-flex;
+  gap: 0.25em;
+}

@@ -1,5 +1,6 @@
 import { renderSection } from "../sections/section-renderer.js";
 import { renderTabs, selectTab, showWorksheetPanel } from "./navigation.js";
+import { wireScoring } from "./scoring.js";
 
 /**
  * Renders a full workbook (title, worksheet tabs, and one panel per worksheet
@@ -58,6 +59,7 @@ export function renderWorkbook(config, mountEl, { data = {}, onFieldChange } = {
   });
 
   mountEl.appendChild(root);
+  wireScoring(root);
 
   return {
     root,

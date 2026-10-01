@@ -3,6 +3,8 @@ import { listWorkbookFields } from "./field-matcher.js";
 
 const CHECKBOX_GROUP_OPT_RE = /^(.*)__opt__(\d+)$/;
 const TABLE_CELL_RE = /^(.*)__cell__(.*)__row__(\d+)$/;
+const SCALE_ROW_RE = /^(.*)__scale__(\d+)$/;
+const SCOREBOARD_ROW_RE = /^(.*)__score__(\d+)$/;
 
 function readFieldValue(form, pdfFieldName) {
   const field = form.getFieldMaybe ? form.getFieldMaybe(pdfFieldName) : safeGetField(form, pdfFieldName);
@@ -52,6 +54,8 @@ export async function importWorkbookPdf(config, pdfBytes, existingData = {}) {
   const matchedIds = new Set();
   const checkboxGroupSelections = new Map(); // fieldId -> Set(optionIndex checked)
   const tableCellValues = new Map(); // fieldId -> { entry, rows }
+  const scaleAnswers = new Map(); // fieldId -> { entry, answers[] }
+  const scoreboardEntries = new Map(); // fieldId -> { entry, scores{} }
 
   for (const pdfFieldName of pdfFieldNames) {
     const groupMatch = pdfFieldName.match(CHECKBOX_GROUP_OPT_RE);
@@ -64,6 +68,31 @@ export async function importWorkbookPdf(config, pdfBytes, existingData = {}) {
         if (!checkboxGroupSelections.has(fieldId)) checkboxGroupSelections.set(fieldId, new Set());
         checkboxGroupSelections.get(fieldId).add(Number(indexStr));
       }
+      continue;
+    }
+
+    const scaleMatch = pdfFieldName.match(SCALE_ROW_RE);
+    if (scaleMatch) {
+      const [, fieldId, indexStr] = scaleMatch;
+      const scaleEntry = workbookFieldById.get(fieldId);
+      if (!scaleEntry || scaleEntry.field.type !== "scale") continue;
+      const picked = Number(readFieldValue(form, pdfFieldName));
+      if (!Number.isFinite(picked) || readFieldValue(form, pdfFieldName) == null || readFieldValue(form, pdfFieldName) === "") continue;
+      if (!scaleAnswers.has(fieldId)) scaleAnswers.set(fieldId, { entry: scaleEntry, answers: [] });
+      scaleAnswers.get(fieldId).answers[Number(indexStr)] = picked;
+      continue;
+    }
+
+    const scoreMatch = pdfFieldName.match(SCOREBOARD_ROW_RE);
+    if (scoreMatch) {
+      const [, fieldId, indexStr] = scoreMatch;
+      const boardEntry = workbookFieldById.get(fieldId);
+      if (!boardEntry || boardEntry.field.type !== "scoreboard") continue;
+      const typed = readFieldValue(form, pdfFieldName);
+      const source = boardEntry.field.rows?.[Number(indexStr)]?.source;
+      if (isBlank(typed) || !source || !Number.isFinite(Number(typed))) continue;
+      if (!scoreboardEntries.has(fieldId)) scoreboardEntries.set(fieldId, { entry: boardEntry, scores: {} });
+      scoreboardEntries.get(fieldId).scores[source] = Number(typed);
       continue;
     }
 
@@ -104,6 +133,22 @@ export async function importWorkbookPdf(config, pdfBytes, existingData = {}) {
     matchedCount += 1;
   }
 
+  for (const [fieldId, { entry, answers }] of scaleAnswers) {
+    const count = (entry.field.statements || []).length;
+    const filled = Array.from({ length: count }, (_, i) => (answers[i] == null ? null : answers[i]));
+    if (!mergedWorksheets[entry.worksheetId]) mergedWorksheets[entry.worksheetId] = {};
+    mergedWorksheets[entry.worksheetId][fieldId] = filled;
+    matchedIds.add(fieldId);
+    matchedCount += 1;
+  }
+
+  for (const [fieldId, { entry, scores }] of scoreboardEntries) {
+    if (!mergedWorksheets[entry.worksheetId]) mergedWorksheets[entry.worksheetId] = {};
+    mergedWorksheets[entry.worksheetId][fieldId] = scores;
+    matchedIds.add(fieldId);
+    matchedCount += 1;
+  }
+
   for (const [fieldId, { entry, rows }] of tableCellValues) {
     const compactRows = rows.map((row) => row || {}).filter((row) => Object.keys(row).length > 0);
     if (compactRows.length === 0) continue;
@@ -121,7 +166,7 @@ export async function importWorkbookPdf(config, pdfBytes, existingData = {}) {
       return (entry.field.options || []).map((_, i) => `${fieldId}__opt__${i}`);
     }),
   ]);
-  const unmatchedInPdf = pdfFieldNames.filter((name) => !knownPdfNames.has(name) && !CHECKBOX_GROUP_OPT_RE.test(name) && !TABLE_CELL_RE.test(name));
+  const unmatchedInPdf = pdfFieldNames.filter((name) => !knownPdfNames.has(name) && !CHECKBOX_GROUP_OPT_RE.test(name) && !TABLE_CELL_RE.test(name) && !SCALE_ROW_RE.test(name) && !SCOREBOARD_ROW_RE.test(name));
 
   return {
     data: {
