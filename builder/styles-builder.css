@@ -622,6 +622,26 @@ input.builder-section-title-input:focus {
   font-weight: 700;
 }
 
+.builder-table-grid-cell {
+  position: relative;
+}
+
+.builder-table-col-resize {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+  touch-action: none;
+}
+
+.builder-table-col-resize:hover {
+  background: var(--bd-accent);
+  opacity: 0.4;
+}
+
 .builder-table-grid-cell-selected {
   outline: 2px solid var(--bd-accent);
   outline-offset: -2px;
@@ -641,7 +661,7 @@ input.builder-section-title-input:focus {
 
 .builder-table-row-tools,
 .builder-table-column-tools {
-  width: 7.5em;
+  width: 120px;
   padding: 0.35em !important;
   background: var(--bd-bg) !important;
 }
@@ -686,6 +706,12 @@ input.builder-section-title-input:focus {
 .builder-section-card > .builder-remove-btn {
   align-self: flex-end;
   margin-left: 0;
+  border-color: var(--bd-border-strong);
+}
+
+.builder-standalone-block > .builder-remove-btn {
+  display: block;
+  margin-left: auto;
   border-color: var(--bd-border-strong);
 }
 

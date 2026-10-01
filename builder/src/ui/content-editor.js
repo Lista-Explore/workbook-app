@@ -11,6 +11,73 @@ const EDITOR_BUTTONS = [
   ["fullScreen", "showBlocks"],
 ];
 
+const MIN_COLUMN_PERCENT = 5;
+const RESIZE_EDGE_PX = 5;
+
+// A row is resizable only if it's a plain grid row (no merged cells) and
+// matches the column count of the table's reference row.
+function plainRow(row) {
+  return row && [...row.cells].every((cell) => cell.colSpan === 1 && cell.rowSpan === 1);
+}
+
+function referenceRow(table) {
+  return [...table.rows].find(plainRow);
+}
+
+function resizeTarget(event, wysiwyg) {
+  const cell = event.target.closest?.("td, th");
+  if (!cell || !wysiwyg.contains(cell)) return null;
+  const row = cell.parentElement;
+  const table = row.closest("table");
+  const reference = table && referenceRow(table);
+  if (!reference || !plainRow(row) || row.cells.length !== reference.cells.length) return null;
+  const index = cell.cellIndex;
+  if (index >= row.cells.length - 1) return null;
+  if (cell.getBoundingClientRect().right - event.clientX > RESIZE_EDGE_PX) return null;
+  return { table, reference, index };
+}
+
+// Drag a column border in any table in the content editor to resize the two
+// columns either side of it. Widths are written as percentages onto the
+// cells, so they're saved with the content's HTML.
+function enableTableColumnResize(wysiwyg) {
+  wysiwyg.addEventListener("mousemove", (event) => {
+    if (event.buttons) return;
+    wysiwyg.style.cursor = resizeTarget(event, wysiwyg) ? "col-resize" : "";
+  });
+  wysiwyg.addEventListener("mousedown", (event) => {
+    const target = resizeTarget(event, wysiwyg);
+    if (!target) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const { table, reference, index } = target;
+    const tableWidth = table.getBoundingClientRect().width || 1;
+    const widths = [...reference.cells].map((cell) => (cell.getBoundingClientRect().width / tableWidth) * 100);
+    const startLeft = widths[index];
+    const startRight = widths[index + 1];
+    const startX = event.clientX;
+    const rows = [...table.rows].filter((row) => plainRow(row) && row.cells.length === widths.length);
+    table.style.tableLayout = "fixed";
+    const apply = () => rows.forEach((row) => widths.forEach((width, i) => {
+      row.cells[i].style.width = `${width.toFixed(2)}%`;
+    }));
+    apply();
+    const onMove = (moveEvent) => {
+      const delta = ((moveEvent.clientX - startX) / tableWidth) * 100;
+      const shift = Math.min(Math.max(delta, MIN_COLUMN_PERCENT - startLeft), startRight - MIN_COLUMN_PERCENT);
+      widths[index] = startLeft + shift;
+      widths[index + 1] = startRight - shift;
+      apply();
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, true);
+}
+
 export function destroyContentEditors() {
   for (const { editor, observer } of editors) {
     observer.disconnect();
@@ -43,6 +110,7 @@ function createEditor(textarea, field, onChange, { height = "260px", minHeight =
   lastHtml = repairContentHtmlSpacing(editor.getContents());
   editor.onChange = sync;
   editor.core.context.element.wysiwyg.setAttribute("aria-label", "Content text");
+  enableTableColumnResize(editor.core.context.element.wysiwyg);
   const observer = new MutationObserver(() => queueMicrotask(() => sync()));
   observer.observe(editor.core.context.element.wysiwyg, {
     attributes: true,

@@ -145,6 +145,8 @@ function normalizeColumnWidths(widths, count) {
   return safe.map((width) => Math.round((width / total) * 100));
 }
 
+const TOOLS_COLUMN_PX = () => 120;
+
 function renderTableEditor(field, onChange, onLightChange) {
   normalizeTableCells(field);
   let selected = { row: 0, column: 0 };
@@ -169,6 +171,8 @@ function renderTableEditor(field, onChange, onLightChange) {
   const widthControls = document.createElement("div");
   widthControls.className = "builder-table-widths";
   field.columnWidths = normalizeColumnWidths(field.columnWidths, field.cells[0].length);
+  const widthInputs = [];
+  let applyColumnWidths = () => {};
   field.columnWidths.forEach((width, columnIndex) => {
     const label = document.createElement("label");
     label.textContent = `Column ${columnIndex + 1} width`;
@@ -179,8 +183,10 @@ function renderTableEditor(field, onChange, onLightChange) {
     input.value = String(width);
     input.addEventListener("input", () => {
       field.columnWidths[columnIndex] = Number(input.value) || width;
+      applyColumnWidths();
       onLightChange();
     });
+    widthInputs.push(input);
     label.appendChild(input);
     widthControls.appendChild(label);
   });
@@ -301,6 +307,41 @@ function renderTableEditor(field, onChange, onLightChange) {
       });
       td.addEventListener("click", () => selectCell(rowIndex, columnIndex));
       td.appendChild(editor);
+      if (rowIndex === 0 && columnIndex < cellRow.length - 1) {
+        const handle = document.createElement("div");
+        handle.className = "builder-table-col-resize";
+        handle.setAttribute("aria-hidden", "true");
+        handle.title = "Drag to resize column";
+        handle.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          handle.setPointerCapture(event.pointerId);
+          const startX = event.clientX;
+          const startLeft = field.columnWidths[columnIndex];
+          const startRight = field.columnWidths[columnIndex + 1];
+          const available = Math.max(tableEl.offsetWidth - TOOLS_COLUMN_PX(), 1);
+          const onMove = (moveEvent) => {
+            const delta = ((moveEvent.clientX - startX) / available) * 100;
+            const shift = Math.min(Math.max(delta, 5 - startLeft), startRight - 5);
+            field.columnWidths[columnIndex] = startLeft + shift;
+            field.columnWidths[columnIndex + 1] = startRight - shift;
+            applyColumnWidths();
+            widthInputs.forEach((input, index) => { input.value = String(Math.round(field.columnWidths[index])); });
+          };
+          const onUp = () => {
+            handle.removeEventListener("pointermove", onMove);
+            handle.removeEventListener("pointerup", onUp);
+            handle.removeEventListener("pointercancel", onUp);
+            field.columnWidths = normalizeColumnWidths(field.columnWidths, field.cells[0].length);
+            applyColumnWidths();
+            widthInputs.forEach((input, index) => { input.value = String(field.columnWidths[index]); });
+            onLightChange();
+          };
+          handle.addEventListener("pointermove", onMove);
+          handle.addEventListener("pointerup", onUp);
+          handle.addEventListener("pointercancel", onUp);
+        });
+        td.appendChild(handle);
+      }
       tr.appendChild(td);
     });
 
@@ -352,9 +393,23 @@ function renderTableEditor(field, onChange, onLightChange) {
   columnTools.appendChild(document.createElement("td"));
   tbody.appendChild(columnTools);
 
+  const colgroup = document.createElement("colgroup");
+  const dataCols = field.cells[0].map(() => colgroup.appendChild(document.createElement("col")));
+  const toolsCol = colgroup.appendChild(document.createElement("col"));
+  toolsCol.style.width = `${TOOLS_COLUMN_PX()}px`;
+  tableEl.appendChild(colgroup);
   tableEl.appendChild(tbody);
   gridWrap.appendChild(tableEl);
   wrap.appendChild(gridWrap);
+
+  // Columns are stored as percentages of the data area (everything except
+  // the row-tools column), so convert to pixels against the grid's width.
+  applyColumnWidths = () => {
+    const available = Math.max(gridWrap.clientWidth - TOOLS_COLUMN_PX(), field.cells[0].length * 60);
+    dataCols.forEach((col, index) => { col.style.width = `${(field.columnWidths[index] / 100) * available}px`; });
+    tableEl.style.width = `${available + TOOLS_COLUMN_PX()}px`;
+  };
+  if (typeof ResizeObserver === "function") new ResizeObserver(() => applyColumnWidths()).observe(gridWrap);
   syncToolbar();
 
   return wrap;

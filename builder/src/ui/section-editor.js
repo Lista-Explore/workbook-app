@@ -65,6 +65,15 @@ export function renderSectionEditor(container, state, worksheetId, onChange, onL
       renderFieldEditor(fields, state, worksheetId, section.id, section, onChange, onLightChange);
       block.appendChild(controls);
       block.appendChild(fields);
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "builder-remove-btn";
+      removeBtn.textContent = "Remove";
+      removeBtn.addEventListener("click", () => {
+        state.removeSection(worksheetId, section.id);
+        onChange();
+      });
+      block.appendChild(removeBtn);
       container.appendChild(block);
       return;
     }
@@ -116,25 +125,6 @@ export function renderSectionEditor(container, state, worksheetId, onChange, onL
 
     container.appendChild(card);
   });
-
-  // A trailing standalone group already provides an add-question control.
-  if (!worksheet.sections.at(-1)?.unsectioned) {
-    const block = document.createElement("div");
-    block.className = "builder-standalone-block builder-standalone-placeholder";
-    const placeholder = { fields: [], columns: 1, unsectioned: true };
-    const controls = document.createElement("div");
-    controls.className = "builder-standalone-controls";
-    controls.appendChild(renderColumnsControl(placeholder, state, worksheetId, () => {
-      fields.innerHTML = "";
-      renderFieldEditor(fields, state, worksheetId, null, placeholder, onChange, onLightChange);
-    }));
-    const fields = document.createElement("div");
-    fields.className = "builder-fields-container";
-    renderFieldEditor(fields, state, worksheetId, null, placeholder, onChange, onLightChange);
-    block.appendChild(controls);
-    block.appendChild(fields);
-    container.appendChild(block);
-  }
 
   const addActions = document.createElement("div");
   addActions.className = "builder-add-actions";
