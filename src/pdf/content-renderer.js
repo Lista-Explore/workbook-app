@@ -4,7 +4,7 @@ import html2canvas from '../vendor/html2canvas.esm.js';
 // Render rich HTML with the same browser/CSS engine used by the workbook.
 // Widths are PDF points; CSS pixels are converted at 96 dpi. Content remains
 // display-only, while answer controls are created separately as AcroForm fields.
-export async function renderContent(pdfDoc, html, width) {
+export async function renderContent(pdfDoc, html, width, { fontSize } = {}) {
   if (!document.createRange || !document.body || !document.documentElement.getBoundingClientRect().width) return null;
   const host = document.createElement('div');
   host.className = 'lms-workbook';
@@ -13,6 +13,7 @@ export async function renderContent(pdfDoc, html, width) {
   content.className = 'wb-content';
   content.innerHTML = sanitizeContent(html);
   Object.assign(content.style, { display: 'flow-root', width: '100%', overflowWrap: 'anywhere' });
+  if (fontSize) content.style.fontSize = `${fontSize}px`;
   host.append(content);
   document.body.append(host);
   try {

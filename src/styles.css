@@ -465,7 +465,7 @@ details.wb-section:not([open]) > .wb-section-fields {
 /* Rich content is shared by preview and published workbooks. These selectors
    include .lms-workbook so LMS theme styles don't accidentally win after
    the pasted HTML is embedded in a course page. */
-.lms-workbook .wb-content { font-family: Arial, sans-serif; font-size: 16px; line-height: 1.5; overflow-wrap: anywhere; }
+.lms-workbook .wb-content { font-family: var(--font-family, 'DM Sans', Arial, sans-serif); color: var(--color-primary, #103049); font-size: 15px; line-height: 1.4; overflow-wrap: anywhere; }
 .lms-workbook .wb-content p { margin: 0 0 10px; }
 .lms-workbook .wb-content img { display: block !important; max-width: 100% !important; height: auto !important; }
 .lms-workbook .wb-content figure { margin: 0; max-width: 100%; }
@@ -477,10 +477,37 @@ details.wb-section:not([open]) > .wb-section-fields {
 .lms-workbook .wb-content .__se__float-center { justify-content: center; margin-left: auto; margin-right: auto; }
 .lms-workbook .wb-content .__se__float-center > figure { margin-left: auto !important; margin-right: auto !important; }
 .lms-workbook .wb-content .__se__float-none { justify-content: flex-start; float: none; }
-.lms-workbook .wb-content table { border-collapse: collapse; max-width: 100%; }
+.lms-workbook .wb-content table { width: 100%; table-layout: fixed; border-collapse: collapse; max-width: 100%; }
 .lms-workbook .wb-content td, .lms-workbook .wb-content th { border: 1px solid #ccc; padding: 6px; }
-.lms-workbook .wb-content blockquote { border-left: 4px solid #ccc; margin: 0 0 10px; padding-left: 12px; }
-.lms-workbook .wb-content pre { display: block; padding: 8px; margin: 0 0 10px; font-family: monospace; color: #666; line-height: 1.45; background-color: #f9f9f9; border: 1px solid #e1e1e1; border-radius: 2px; white-space: pre-wrap; word-wrap: break-word; }
+.lms-workbook .wb-content blockquote { border-left: 5px solid var(--color-primary, #103049); background: var(--color-primary-80, #cfd6db); margin: 12px 0; padding: 12px 16px; }
+.lms-workbook .wb-content blockquote > :last-child { margin-bottom: 0; }
+.lms-workbook .wb-content pre { display: block; padding: 12px 16px; margin: 0 0 12px; font-family: inherit; color: inherit; line-height: 1.4; background-color: var(--color-primary-80, #cfd6db); border: 0; border-left: 5px solid var(--color-primary, #103049); border-radius: 0; white-space: pre-wrap; word-wrap: break-word; }
+.lms-workbook .wb-content blockquote pre { padding: 0; border: 0; background: transparent; }
+.lms-workbook .wb-content .important-to-remember { background: var(--color-tertiary-80, #F0F9CC); border-left-color: var(--color-tertiary, #B4E000); }
+/* Reference callouts. The same author-selected classes survive HTML export,
+   LMS hydration and browser-based PDF rendering. All colours are brand tokens. */
+:is(.lms-workbook .wb-content, .sun-editor) .__se__savanna-prompt,
+:is(.lms-workbook .wb-content, .sun-editor) .__se__savanna-important {
+  padding: 12px 16px;
+  background: var(--color-primary-80, #cfd6db);
+  border-left: 5px solid var(--color-primary, #103049);
+  color: var(--color-primary, #103049);
+}
+:is(.lms-workbook .wb-content, .sun-editor) .__se__savanna-important {
+  background: var(--color-tertiary-80, #F0F9CC);
+  border-left-color: var(--color-tertiary, #B4E000);
+}
+:is(.lms-workbook .wb-content, .sun-editor) :is(.__se__savanna-dev, .__se__savanna-clara, .__se__savanna-worth, .__se__savanna-remember) {
+  display: inline-block;
+  border-radius: 6px;
+  padding: 3px 9px;
+  font-weight: 700;
+  color: var(--color-primary, #103049);
+  background: var(--color-secondary-40, #8EAEF4);
+}
+:is(.lms-workbook .wb-content, .sun-editor) .__se__savanna-clara { background: var(--color-accent-60, #ECBAD6); }
+:is(.lms-workbook .wb-content, .sun-editor) .__se__savanna-worth { background: var(--color-primary-60, #9facb6); }
+:is(.lms-workbook .wb-content, .sun-editor) .__se__savanna-remember { background: var(--color-tertiary-40, #D2EC66); }
 .lms-workbook .wb-content ul { list-style: disc; margin: 0 0 10px; padding-left: 2em; }
 .lms-workbook .wb-content ol { list-style: decimal; margin: 0 0 10px; padding-left: 2em; }
 .lms-workbook .wb-content a { color: #004cff; text-decoration: none; }

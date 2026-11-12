@@ -5,7 +5,7 @@ import { renderWorkbookSettingsPanel } from "./ui/workbook-settings-panel.js";
 import { renderWorksheetList } from "./ui/worksheet-list.js";
 import { renderSectionEditor } from "./ui/section-editor.js";
 import { renderPreviewPanel } from "./ui/preview-panel.js";
-import { renderPublishPanel } from "./ui/publish-panel.js";
+import { renderPublishPanel } from "./ui/publish-panel.js?v=20261028-savanna-branding-3";
 import { registerAllFields } from "../../src/fields/index.js?v=20260929-pdf-export-fix";
 import { domToConfig } from "../../src/core/dom-config.js";
 

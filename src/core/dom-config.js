@@ -147,6 +147,12 @@ function sectionConfigFromEl(sectionEl) {
     title,
     columns,
     collapsible: sectionEl.tagName === "DETAILS",
+    // `open` is the persisted state of a native <details> section.  The
+    // Builder stores the inverse as startCollapsed so an LMS-HTML import
+    // must preserve a section that was closed when it was exported.
+    ...(!sectionEl.dataset.unsectioned && sectionEl.tagName === "DETAILS"
+      ? { startCollapsed: !sectionEl.open }
+      : {}),
     ...(sectionEl.dataset.unsectioned === "true" ? { unsectioned: true } : {}),
     ...(blockColumnCounts.length > 1 ? { blocks: blockColumnCounts } : {}),
     fields,

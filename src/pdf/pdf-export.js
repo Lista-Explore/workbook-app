@@ -2,8 +2,9 @@ import { repairContentHtmlSpacing, repairPdfTextSpacing, sanitizeContent } from 
 import { PDFDocument, rgb, layoutMultilineText } from "../vendor/pdf-lib.esm.js";
 import fontkit from "../vendor/fontkit.esm.js";
 import { DISPLAY_ONLY_FIELD_TYPES } from "../fields/index.js";
-import { renderContent } from "./content-renderer.js";
-import { groupByColumn, groupByBlockThenColumn } from "../core/column-layout.js";
+import { renderContent } from "./content-renderer.js?v=20261028-brand-layout-5";
+import { groupByColumn, groupByBlockThenColumn } from "../core/column-layout.js?v=20261028-layout-cache-fix";
+import { getBranding, hexToRgb, loadBrandImage } from "./branding.js?v=20261029-header-footer";
 import {
   SCORING_TYPES, scalePoints, scaleStatements, scoreScale, resolveScoreboard, renderTemplate, snapshotFromConfig,
 } from "../core/scoring.js";
@@ -40,9 +41,12 @@ function pdfText(value) {
   return repairPdfTextSpacing(String(value || ""));
 }
 
-const PAGE_WIDTH = 612;
-const PAGE_HEIGHT = 792;
+const PAGE_WIDTH = 595.28;
+const PAGE_HEIGHT = 841.89;
 const MARGIN = 50;
+const BRAND_IMAGE_WIDTH = 1240;
+const BRAND_HEADER_HEIGHT = 133;
+const BRAND_FOOTER_HEIGHT = 80;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 const GAP = 10;
 const MAX_IMAGE_HEIGHT = 160;
@@ -69,15 +73,13 @@ const COLLAPSIBLE_BANNER_FROM = { r: 0x42 / 255, g: 0x78 / 255, b: 0xec / 255 };
 const COLLAPSIBLE_BANNER_TO = { r: 0xdf / 255, g: 0x8c / 255, b: 0xbb / 255 }; // --color-accent
 const COLLAPSIBLE_BANNER_TEXT_COLOR = rgb(1, 1, 1); // --color-light
 
-function drawCollapsibleBanner({ page, text, font, x, y, width, height }) {
+function drawCollapsibleBanner({ page, text, font, x, y, width, height, from = COLLAPSIBLE_BANNER_FROM, to = COLLAPSIBLE_BANNER_TO }) {
   const steps = 60;
   const stepWidth = width / steps;
   for (let i = 0; i < steps; i++) {
     const t = i / (steps - 1);
     const color = rgb(
-      COLLAPSIBLE_BANNER_FROM.r + t * (COLLAPSIBLE_BANNER_TO.r - COLLAPSIBLE_BANNER_FROM.r),
-      COLLAPSIBLE_BANNER_FROM.g + t * (COLLAPSIBLE_BANNER_TO.g - COLLAPSIBLE_BANNER_FROM.g),
-      COLLAPSIBLE_BANNER_FROM.b + t * (COLLAPSIBLE_BANNER_TO.b - COLLAPSIBLE_BANNER_FROM.b)
+      from.r + t * (to.r - from.r), from.g + t * (to.g - from.g), from.b + t * (to.b - from.b)
     );
     page.drawRectangle({ x: x + i * stepWidth, y: y - height, width: stepWidth + 0.5, height, color });
   }
@@ -95,15 +97,20 @@ const POPPINS_BOLD_URL = "https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgF
 
 async function embedPoppins(pdfDoc) {
   pdfDoc.registerFontkit(fontkit);
-  const [regularBytes, boldBytes] = await Promise.all([
-    fetch(POPPINS_REGULAR_URL).then((res) => res.arrayBuffer()),
-    fetch(POPPINS_BOLD_URL).then((res) => res.arrayBuffer()),
-  ]);
-  const [font, boldFont] = await Promise.all([
-    pdfDoc.embedFont(regularBytes, { subset: true }),
-    pdfDoc.embedFont(boldBytes, { subset: true }),
-  ]);
-  return { font, boldFont };
+  try {
+    const [regularBytes, boldBytes] = await Promise.all([
+      fetch(POPPINS_REGULAR_URL).then((res) => res.arrayBuffer()),
+      fetch(POPPINS_BOLD_URL).then((res) => res.arrayBuffer()),
+    ]);
+    const [font, boldFont] = await Promise.all([
+      pdfDoc.embedFont(regularBytes, { subset: true }),
+      pdfDoc.embedFont(boldBytes, { subset: true }),
+    ]);
+    return { font, boldFont };
+  } catch {
+    // PDF export must remain usable offline and in unit-test environments.
+    return { font: await pdfDoc.embedStandardFont("Helvetica"), boldFont: await pdfDoc.embedStandardFont("Helvetica-Bold") };
+  }
 }
 
 /**
@@ -405,7 +412,7 @@ function fieldRowHeight(field, embeddedImages, font, width, imageErrors, boldFon
   const labelLines = wrapText(field.label, boldFont || font, 10, width).length;
   const labelHeight = (labelLines - 1) * LINE_HEIGHT;
 
-  if (field.type === "long-text") return 90 + labelHeight;
+  if (field.type === "long-text") return 130 + labelHeight;
   if (field.type === "radio" || field.type === "checkbox-group") {
     const count = (field.options || []).length || 1;
     return 20 + count * 16 + labelHeight;
@@ -923,7 +930,8 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
       const tf = form.createTextField(field.id);
       tf.enableMultiline();
       if (value) tf.setText(String(value));
-      tf.addToPage(page, { x, y: widgetY - 60, width, height: 64, font, borderWidth: 1 });
+      const answer = hexToRgb(getBranding().responseBackground);
+      tf.addToPage(page, { x, y: widgetY - 100, width, height: 104, font, borderWidth: .6, backgroundColor: rgb(answer.r, answer.g, answer.b), borderColor: rgb(.65, .72, .55) });
       // setFontSize() needs a /DA entry to already exist, which addToPage()
       // is what creates — must come after. Without an explicit size,
       // pdf-lib leaves it at 0 ("auto"), and a PDF viewer then picks its
@@ -1252,7 +1260,24 @@ export async function exportWorkbookPdf(config, data) {
 
   const scoringSnapshot = snapshotFromConfig(config, data);
   const pdfDoc = await PDFDocument.create();
+  const branding = getBranding();
   const { font, boldFont } = await embedPoppins(pdfDoc);
+  const [headerBytes, footerBytes] = await Promise.all([
+    loadBrandImage(branding.assets.header),
+    loadBrandImage(branding.assets.footer),
+  ]);
+  const coverBytes = await loadBrandImage(branding.assets.cover);
+  const coverImage = coverBytes ? await pdfDoc.embedPng(coverBytes) : null;
+  const headerImage = headerBytes ? await pdfDoc.embedPng(headerBytes) : null;
+  const footerImage = footerBytes ? await pdfDoc.embedPng(footerBytes) : null;
+  const brandPrimary = rgb(...Object.values(hexToRgb(branding.primary)));
+  // Reserve the supplied artwork's footprint even when an offline export
+  // cannot fetch the PNGs. That keeps the layout safe and identical once the
+  // browser can load the assets.
+  const headerHeight = headerImage ? PAGE_WIDTH * headerImage.height / headerImage.width : PAGE_WIDTH * BRAND_HEADER_HEIGHT / BRAND_IMAGE_WIDTH;
+  const footerHeight = footerImage ? PAGE_WIDTH * footerImage.height / footerImage.width : PAGE_WIDTH * BRAND_FOOTER_HEIGHT / BRAND_IMAGE_WIDTH;
+  const contentTop = PAGE_HEIGHT - headerHeight - MARGIN;
+  const contentBottom = footerHeight + MARGIN;
   const form = pdfDoc.getForm();
   for (const worksheet of config.worksheets || []) {
     const values = worksheetsData[worksheet.id] || {};
@@ -1276,25 +1301,56 @@ export async function exportWorkbookPdf(config, data) {
           }
         }
       }
+      // Modestly compact rich text when that keeps a complete topic and its
+      // response together. Never shrink arbitrarily long content to fit.
+      if (section.title && blockColumnCounts.every((count) => count === 1)) {
+        const required = (section.fields || []).reduce((sum, field) => sum +
+          (field._pdfContent ? field._pdfContent.height + GAP : field.type === 'long-text' ? 154 : 40), 38);
+        const available = PAGE_HEIGHT - 150;
+        if (required > available && required < available * 1.18) {
+          for (const field of section.fields || []) {
+            if (field.type === 'content' && field._pdfContent) {
+              field._pdfContent = await renderContent(pdfDoc, field.html, CONTENT_WIDTH, { fontSize: 13.5 });
+            }
+          }
+        }
+      }
     }
   }
   const { embedded: embeddedImages, errors: imageErrors } = await embedImageFields(pdfDoc, config);
 
+  function drawPageChrome(target) {
+    if (headerImage) target.drawImage(headerImage, { x: 0, y: PAGE_HEIGHT - headerHeight, width: PAGE_WIDTH, height: headerHeight });
+    if (footerImage) target.drawImage(footerImage, { x: 0, y: 0, width: PAGE_WIDTH, height: footerHeight });
+  }
+  const bannerFrom = hexToRgb(branding.secondary);
+  const bannerTo = hexToRgb(branding.accent);
+
+  // The supplied cover is a complete page artwork. Preserve it exactly and
+  // keep the repeated header/footer chrome on workbook content pages only.
+  if (coverImage) {
+    const cover = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+    cover.drawImage(coverImage, { x: 0, y: 0, width: PAGE_WIDTH, height: PAGE_HEIGHT });
+  }
+
   let page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-  let y = PAGE_HEIGHT - MARGIN;
+  let y = contentTop;
+  drawPageChrome(page);
 
   let flowTopPadding = 0;
   function ensureSpace(height) {
-    if (y - height < MARGIN) {
+    if (y - height < contentBottom) {
       const nextIndex = pdfDoc.getPages().indexOf(page) + 1;
-      page = pdfDoc.getPages()[nextIndex] || pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-      y = PAGE_HEIGHT - MARGIN - flowTopPadding;
+      const existing = pdfDoc.getPages()[nextIndex];
+      page = existing || pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+      if (!existing) drawPageChrome(page);
+      y = contentTop - flowTopPadding;
     }
   }
 
   if (config.title) {
     ensureSpace(24);
-    page.drawText(pdfText(config.title), { x: MARGIN, y, size: 18, font: boldFont });
+    page.drawText(pdfText(config.title), { x: MARGIN, y, size: 18, font: boldFont, color: brandPrimary });
     y -= 30;
   }
 
@@ -1306,7 +1362,8 @@ export async function exportWorkbookPdf(config, data) {
     // separation here.
     if (worksheetIndex > 0) {
       page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-      y = PAGE_HEIGHT - MARGIN;
+      drawPageChrome(page);
+      y = contentTop;
     }
 
     if (worksheet.title) {
@@ -1389,9 +1446,9 @@ export async function exportWorkbookPdf(config, data) {
       y = drawFieldLabel({ page, field, boldFont, x, y, width }) - 4;
       let answerStart = 0;
       for (let row = 0; row < cells.length; row++) {
-        if (y - heights[row] < MARGIN) {
+        if (y - heights[row] < contentBottom) {
           ensureSpace(heights[row]);
-          if (row >= headers && headers > 0 && heights.slice(0, headers).reduce((a,b) => a+b, 0) + heights[row] < PAGE_HEIGHT - MARGIN * 2) {
+          if (row >= headers && headers > 0 && heights.slice(0, headers).reduce((a,b) => a+b, 0) + heights[row] < contentTop - contentBottom) {
             drawTableField({ form, font, boldFont, page, field, value, x, y, width, startRow: 0, endRow: headers, hideLabel: true });
             y -= heights.slice(0, headers).reduce((a,b) => a+b, 0);
           }
@@ -1410,7 +1467,7 @@ export async function exportWorkbookPdf(config, data) {
       const keep = (lead === -1 ? items : items.slice(0, lead + 1)).reduce((sum, item) => sum + item.height, 0);
       ensureSpace(Math.min(keep, 160));
       for (const item of items) {
-        if (y - item.height < MARGIN) {
+        if (y - item.height < contentBottom) {
           ensureSpace(item.height);
           // A continued table starts with its column header again.
           if (item.row && header && y - header.height - item.height >= MARGIN) {
@@ -1458,13 +1515,21 @@ export async function exportWorkbookPdf(config, data) {
         cursorY -= segmentHeight;
         if (index < options.length) {
           page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-          cursorY = PAGE_HEIGHT - MARGIN;
+          drawPageChrome(page);
+          cursorY = contentTop;
         }
       }
       y = cursorY - GAP;
     }
 
-    for (const section of worksheet.sections || []) {
+    for (const [sectionIndex, section] of (worksheet.sections || []).entries()) {
+      // The reference gives each topic its own page. Unsectioned notes stay
+      // with the preceding topic, and overflowing content continues safely.
+      if (sectionIndex > 0 && section.title && !section.unsectioned) {
+        page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+        drawPageChrome(page);
+        y = contentTop;
+      }
       // A named section can hold more than one layout block, each with its
       // own column count (see sectionBlockColumnCounts) — drawn here as
       // consecutive passes, one per block, with the section's title banner
@@ -1485,7 +1550,7 @@ export async function exportWorkbookPdf(config, data) {
         const firstFieldHeight = firstField?._pdfContent ? (firstField._pdfContent.slices[0]?.height || 0) : firstField ? Math.min(fieldRowHeight(firstField, embeddedImages, font, CONTENT_WIDTH, imageErrors, boldFont, wsValues[firstField.id]), 80) : 0;
         ensureSpace(bannerHeight + firstFieldHeight);
         if (bannerHeight) {
-          drawCollapsibleBanner({ page, text: section.title, font: boldFont, x: MARGIN, y, width: CONTENT_WIDTH, height: COLLAPSIBLE_BANNER_HEIGHT });
+          drawCollapsibleBanner({ page, text: section.title, font: boldFont, x: MARGIN, y, width: CONTENT_WIDTH, height: COLLAPSIBLE_BANNER_HEIGHT, from: bannerFrom, to: bannerTo });
           y -= bannerHeight;
         }
 
@@ -1551,7 +1616,7 @@ export async function exportWorkbookPdf(config, data) {
 
       ensureSpace(bannerHeight + 80);
       if (bannerHeight) {
-        drawCollapsibleBanner({ page, text: section.title, font: boldFont, x: MARGIN, y, width: CONTENT_WIDTH, height: COLLAPSIBLE_BANNER_HEIGHT });
+        drawCollapsibleBanner({ page, text: section.title, font: boldFont, x: MARGIN, y, width: CONTENT_WIDTH, height: COLLAPSIBLE_BANNER_HEIGHT, from: bannerFrom, to: bannerTo });
         y -= bannerHeight;
       }
       const startPage = pdfDoc.getPages().indexOf(page);
@@ -1586,8 +1651,8 @@ export async function exportWorkbookPdf(config, data) {
       const gridColor = rgb(0.82, 0.84, 0.87);
       for (let pageIndex = startPage; pageIndex <= endPage; pageIndex++) {
         const target = pdfDoc.getPages()[pageIndex];
-        const top = pageIndex === startPage ? startY : PAGE_HEIGHT - MARGIN;
-        const bottom = pageIndex === endPage ? Math.max(MARGIN, endY - padBottom) : MARGIN;
+        const top = pageIndex === startPage ? startY : contentTop;
+        const bottom = pageIndex === endPage ? Math.max(contentBottom, endY - padBottom) : contentBottom;
         for (let colIndex = 1; colIndex < columnCount; colIndex++) {
           const dividerX = MARGIN + colIndex * (colWidth + GAP) - GAP / 2;
           target.drawLine({ start: { x: dividerX, y: top }, end: { x: dividerX, y: bottom }, color: gridColor, thickness: 1, dashArray: [1, 2] });

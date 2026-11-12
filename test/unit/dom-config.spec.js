@@ -191,6 +191,29 @@ describe("domToConfig — reconstructing structure from already-rendered HTML", 
     expect(section.columns).toBe(3);
   });
 
+  it("preserves a section's collapsed state when round-tripping LMS HTML", () => {
+    const config = {
+      id: "wb-collapse",
+      title: "Collapse test",
+      worksheets: [{
+        id: "ws1",
+        title: "Sheet 1",
+        sections: [{
+          id: "s1",
+          title: "Initially closed",
+          startCollapsed: true,
+          fields: [{ id: "q1", type: "short-text", label: "Answer", column: 0 }],
+        }],
+      }],
+    };
+
+    const rebuilt = renderAndReconstruct(config);
+    expect(rebuilt.worksheets[0].sections[0]).toMatchObject({
+      collapsible: true,
+      startCollapsed: true,
+    });
+  });
+
   it("recovers worksheet titles from the tab labels when there is more than one worksheet", () => {
     const config = {
       id: "wb7",

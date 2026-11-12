@@ -4,6 +4,11 @@ import { createWrapper } from "./field-helpers.js";
 export function sanitizeContent(html) {
   return DOMPurify.sanitize(html || "", {
     USE_PROFILES: { html: true },
+    // Table column resizing is represented by a semantic colgroup.  Keep
+    // these elements when content moves from SunEditor into BuilderState,
+    // preview, LMS HTML, and PDF rendering.
+    ADD_TAGS: ["colgroup", "col"],
+    ADD_ATTR: ["style"],
     FORBID_TAGS: ["input", "button", "textarea", "select", "form", "style"],
     FORBID_ATTR: ["contenteditable", "id"],
   });

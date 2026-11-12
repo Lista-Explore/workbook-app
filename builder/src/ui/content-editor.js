@@ -12,7 +12,9 @@ const EDITOR_BUTTONS = [
 ];
 
 const MIN_COLUMN_PERCENT = 5;
-const RESIZE_EDGE_PX = 5;
+// Make the divider easy to grab. SunEditor adds padding and nested elements
+// inside cells, so a narrow 5px edge is effectively invisible to users.
+const RESIZE_EDGE_PX = 12;
 
 // A row is resizable only if it's a plain grid row (no merged cells) and
 // matches the column count of the table's reference row.
@@ -33,23 +35,33 @@ function resizeTarget(event, wysiwyg) {
   if (!reference || !plainRow(row) || row.cells.length !== reference.cells.length) return null;
   const index = cell.cellIndex;
   if (index >= row.cells.length - 1) return null;
-  if (cell.getBoundingClientRect().right - event.clientX > RESIZE_EDGE_PX) return null;
-  return { table, reference, index };
+  const bounds = cell.getBoundingClientRect();
+  const nearRight = bounds.right - event.clientX <= RESIZE_EDGE_PX;
+  const nearLeft = event.clientX - bounds.left <= RESIZE_EDGE_PX;
+  if (!nearRight && !nearLeft) return null;
+  // A divider belongs to the column on its left. When the pointer is over
+  // the left edge of a cell, resize the divider immediately before it.
+  const targetIndex = nearLeft && index > 0 ? index - 1 : index;
+  if (targetIndex >= row.cells.length - 1) return null;
+  return { table, reference, index: targetIndex };
 }
 
 // Drag a column border in any table in the content editor to resize the two
 // columns either side of it. Widths are written as percentages onto the
 // cells, so they're saved with the content's HTML.
-function enableTableColumnResize(wysiwyg) {
+function enableTableColumnResize(wysiwyg, onChange) {
+  let resizeActive = false;
+  let skipObserverSync = false;
   wysiwyg.addEventListener("mousemove", (event) => {
     if (event.buttons) return;
     wysiwyg.style.cursor = resizeTarget(event, wysiwyg) ? "col-resize" : "";
   });
-  wysiwyg.addEventListener("mousedown", (event) => {
+  const startResize = (event) => {
     const target = resizeTarget(event, wysiwyg);
     if (!target) return;
     event.preventDefault();
     event.stopPropagation();
+    resizeActive = true;
     const { table, reference, index } = target;
     const tableWidth = table.getBoundingClientRect().width || 1;
     const widths = [...reference.cells].map((cell) => (cell.getBoundingClientRect().width / tableWidth) * 100);
@@ -58,9 +70,21 @@ function enableTableColumnResize(wysiwyg) {
     const startX = event.clientX;
     const rows = [...table.rows].filter((row) => plainRow(row) && row.cells.length === widths.length);
     table.style.tableLayout = "fixed";
-    const apply = () => rows.forEach((row) => widths.forEach((width, i) => {
-      row.cells[i].style.width = `${width.toFixed(2)}%`;
-    }));
+    table.style.width = "100%";
+    const apply = () => {
+      let colgroup = table.querySelector(":scope > colgroup");
+      if (!colgroup) {
+        colgroup = document.createElement("colgroup");
+        table.insertBefore(colgroup, table.firstChild);
+      }
+      while (colgroup.children.length < widths.length) colgroup.appendChild(document.createElement("col"));
+      [...colgroup.children].slice(widths.length).forEach((col) => col.remove());
+      widths.forEach((width, i) => {
+        const value = `${width.toFixed(2)}%`;
+        colgroup.children[i].style.width = value;
+        rows.forEach((row) => { row.cells[i].style.width = value; });
+      });
+    };
     apply();
     const onMove = (moveEvent) => {
       const delta = ((moveEvent.clientX - startX) / tableWidth) * 100;
@@ -72,10 +96,24 @@ function enableTableColumnResize(wysiwyg) {
     const onUp = () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      // SunEditor may not emit a mutation for the final pointer position.
+      // Explicitly commit the DOM-backed widths so BuilderState, autosave,
+      // preview, and published HTML all receive the resized table.
+      // SunEditor.getContents() can return its normalized internal snapshot
+      // and omit styles written directly during a pointer drag. Commit the
+      // actual edited DOM so widths reach BuilderState and generated HTML.
+      skipObserverSync = true;
+      onChange?.(wysiwyg.innerHTML);
+      resizeActive = false;
     };
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
-  }, true);
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  };
+  wysiwyg.addEventListener("pointerdown", startResize, true);
 }
 
 export function destroyContentEditors() {
@@ -92,7 +130,17 @@ function createEditor(textarea, field, onChange, { height = "260px", minHeight =
     height,
     minHeight,
     stickyToolbar: -1,
-    defaultStyle: "font-family: Arial; font-size: 16px;",
+    defaultStyle: "font-family: var(--font-family, 'DM Sans', sans-serif); font-size: 16px; color: var(--color-primary, #103049);",
+    paragraphStyles: [
+      { name: 'AI Prompt', class: '__se__savanna-prompt' },
+      { name: 'Important to Remember', class: '__se__savanna-important' },
+    ],
+    textStyles: [
+      { name: "Dev's Example", class: '__se__savanna-dev', tag: 'span' },
+      { name: "Clara's Example", class: '__se__savanna-clara', tag: 'span' },
+      { name: 'Worth Knowing', class: '__se__savanna-worth', tag: 'span' },
+      { name: 'Important to Remember', class: '__se__savanna-remember', tag: 'span' },
+    ],
     fontSize: [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72],
     formats: ["p", "div", "blockquote", "h1", "h2", "h3", "h4", "h5", "h6", "pre"],
     buttonList: EDITOR_BUTTONS,
@@ -100,18 +148,32 @@ function createEditor(textarea, field, onChange, { height = "260px", minHeight =
     imageUrlInput: true,
   });
   let lastHtml = "";
+  let suppressSync = false;
   const sync = (html = editor.getContents()) => {
     const clean = repairContentHtmlSpacing(html);
     if (clean === lastHtml) return;
     lastHtml = clean;
     onChange(clean);
   };
-  editor.setContents(repairContentHtmlSpacing(field.html));
-  lastHtml = repairContentHtmlSpacing(editor.getContents());
+  const initialHtml = repairContentHtmlSpacing(field.html);
+  editor.setContents(initialHtml);
+  // SunEditor normalizes colgroups away during setContents(). Restore the
+  // saved DOM snapshot so persisted column widths are visible in the Builder
+  // itself after reload, not only in generated HTML/preview.
+  if (initialHtml.includes("<colgroup")) {
+    suppressSync = true;
+    editor.core.context.element.wysiwyg.innerHTML = initialHtml;
+    lastHtml = initialHtml;
+    queueMicrotask(() => { suppressSync = false; });
+  }
+  if (!lastHtml) lastHtml = repairContentHtmlSpacing(editor.getContents());
   editor.onChange = sync;
   editor.core.context.element.wysiwyg.setAttribute("aria-label", "Content text");
-  enableTableColumnResize(editor.core.context.element.wysiwyg);
-  const observer = new MutationObserver(() => queueMicrotask(() => sync()));
+  enableTableColumnResize(editor.core.context.element.wysiwyg, sync);
+  const observer = new MutationObserver(() => queueMicrotask(() => {
+    if (!suppressSync && !resizeActive && !skipObserverSync) sync();
+    skipObserverSync = false;
+  }));
   observer.observe(editor.core.context.element.wysiwyg, {
     attributes: true,
     childList: true,

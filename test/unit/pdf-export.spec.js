@@ -155,7 +155,10 @@ describe("exportWorkbookPdf — multiple worksheets", () => {
 
     const bytes = await exportWorkbookPdf(config, {});
     const pdfDoc = await PDFDocument.load(bytes);
+    // Node's unit environment cannot fetch the browser-served cover asset;
+    // the live browser export adds the cover and produces one extra page.
     expect(pdfDoc.getPageCount()).toBe(2);
+    expect(pdfDoc.getPages()[0].getSize()).toEqual({ width: 595.28, height: 841.89 });
 
     const form = pdfDoc.getForm();
     const aRect = widgetRect(form, "a");
@@ -596,9 +599,14 @@ describe("exportWorkbookPdf — content flow regressions", () => {
       expect(result.getPageCount()).toBeGreaterThan(2);
       const banner = calls.find((call) => call.text === "Keep this banner with content");
       expect(calls.find((call) => call.text === "Line").page).toBe(banner.page);
-      for (let i = 0; i < 140; i++) expect(calls.filter((call) => call.text === String(i))).toHaveLength(1);
+      const bodyCalls = calls.filter((call) => call.y >= 50);
+      for (let i = 0; i < 140; i++) expect(bodyCalls.filter((call) => call.text === String(i))).toHaveLength(1);
       expect(calls.filter((call) => call.text === "Unique table label")).toHaveLength(1);
-      for (const call of calls) expect(call.y).toBeGreaterThanOrEqual(50);
+      for (const call of bodyCalls) expect(call.y).toBeLessThanOrEqual(841.89 - 50);
+      for (const call of calls.filter((call) => call.y < 50)) {
+        expect(call.y).toBe(9); // reserved footer, not overflowing content
+        expect(call.text).toMatch(/^\d+$/);
+      }
       const tableRect = widgetRect(result.getForm(), "table__cell__answer__row__0");
       const afterRect = widgetRect(result.getForm(), "after");
       const tablePage = calls.find((call) => call.text === "Unique table label").page;

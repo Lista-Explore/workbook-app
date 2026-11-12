@@ -38,10 +38,10 @@
     --secondary-logo-icon: url('https://s3.us-east-1.amazonaws.com/alx-intranet.hbtn.io/public/assets/fit-css-assets/Dropdown+Icon_Green.png');
     --light-logo-icon: url('https://s3.us-east-1.amazonaws.com/alx-intranet.hbtn.io/public/assets/fit-css-assets/Dropdown+Icon_White.png');
     --socratic-icon: url('https://s3.us-east-1.amazonaws.com/alx-intranet.hbtn.io/public/assets/fit-css-assets/Socratic+Icon.png');
-
+    
     --icon-primary: url('https://s3.us-east-1.amazonaws.com/alx-intranet.hbtn.io/public/assets/fit-css-assets/FIT+Logo+Icon.png');
     --icon-light: url('https://s3.us-east-1.amazonaws.com/alx-intranet.hbtn.io/public/assets/fit-css-assets/FIT+Logo+Icon.png');
-
+    
     --twitter-icon-primary: url('https://s3.us-east-1.amazonaws.com/alx-intranet.hbtn.io/public/assets/fit-css-assets/FIT+X+Icon.png');
     --linkedin-icon-primary: url('https://s3.us-east-1.amazonaws.com/alx-intranet.hbtn.io/public/assets/fit-css-assets/FIT+LinkedIn+Icon.png');
     --instagram-icon-primary: url('https://s3.us-east-1.amazonaws.com/alx-intranet.hbtn.io/public/assets/fit-css-assets/FIT+Instagram+Icon.png');
@@ -77,7 +77,7 @@ a {
   }
 
   /* Change link color when visited */
-
+  
   a:visited {
     color: var(--color-tertiary-darker);
   }
@@ -235,7 +235,7 @@ details {
 
 /* setting the summary banner styling for milestone tasks */
 .task-summary {
-    background-image:
+    background-image: 
         linear-gradient(to bottom, var(--color-light), var(--color-primary)),
         linear-gradient(to right, var(--color-primary), var(--color-accent));
     background-blend-mode: soft-light, normal;
@@ -243,7 +243,7 @@ details {
 }
 
 .task-summary:hover {
-    background-image:
+    background-image: 
         linear-gradient(to bottom, var(--color-primary), var(--color-light)),
         linear-gradient(to right, var(--color-primary-hover), var(--color-accent-hover));
     background-blend-mode: soft-light, normal;
@@ -257,7 +257,7 @@ details {
 
 /* setting the summary banner styling for submissions */
 .submission-summary {
-     background-image:
+     background-image: 
         linear-gradient(to bottom, var(--color-light), var(--color-primary)),
         linear-gradient(to right, var(--color-primary), var(--color-secondary));
     background-blend-mode: soft-light, normal;
@@ -266,7 +266,7 @@ details {
 }
 
 .submission-summary:hover {
-    background-image:
+    background-image: 
         linear-gradient(to bottom, var(--color-primary), var(--color-light)),
         linear-gradient(to right, var(--color-primary-hover), var(--color-secondary-hover));
     background-blend-mode: soft-light, normal;
@@ -280,7 +280,7 @@ details {
 
 /* setting the summary banner styling for learning content */
 .content-summary {
-    background-image:
+    background-image: 
         linear-gradient(to bottom, var(--color-light), var(--color-primary)),
         linear-gradient(to right, var(--color-secondary), var(--color-accent));
     background-blend-mode: soft-light, normal;
@@ -289,7 +289,7 @@ details {
 }
 
 .content-summary:hover {
-    background-image:
+    background-image: 
         linear-gradient(to bottom, var(--color-primary), var(--color-light)),
         linear-gradient(to right, var(--color-secondary-hover), var(--color-accent-hover));
     background-blend-mode: soft-light, normal;
@@ -319,7 +319,7 @@ details {
 
 /* setting the summary banner styling for Socratic content */
 .socratic-summary {
-    background-image:
+    background-image: 
         linear-gradient(to bottom, var(--color-light), var(--color-primary)),
         linear-gradient(to right, var(--color-primary), var(--color-primary));
     background-blend-mode: soft-light, normal;
@@ -328,7 +328,7 @@ details {
 }
 
 .socratic-summary:hover {
-    background-image:
+    background-image: 
         linear-gradient(to bottom, var(--color-primary), var(--color-light)),
         linear-gradient(to right, var(--color-primary), var(--color-primary));
     background-blend-mode: soft-light, normal;
@@ -366,11 +366,11 @@ details:not([open]) > .socratic-summary:hover::after {
 
 .card-inner {
     transform-style: preserve-3d;
-    transition: 0.5s transform linear;
+    transition: 0.5s transform linear; 
     height: 100%; /* ensures the card fills the entire space */
     display: flex;
 }
-
+  
 .front, .back {
     backface-visibility: hidden;
     min-width: 100%;
@@ -378,19 +378,19 @@ details:not([open]) > .socratic-summary:hover::after {
     font-weight: normal; /* Reset font weight */
     word-wrap: break-word;
 }
-
+  
 .back {
     transform: rotateY(180deg) translate(100%, 0%);
-    background-image:
+    background-image: 
         linear-gradient(to bottom right, var(--color-primary), var(--color-light)),
         linear-gradient(to bottom right, var(--color-primary) 40%, var(--color-secondary));
-    background-blend-mode: soft-light, normal;/* Back side gradient background */
+    background-blend-mode: soft-light, normal;/* Back side gradient background */ 
     color: white;
     justify-content: left;
 }
 
 .front {
-    background-image:
+    background-image: 
         linear-gradient(to bottom, var(--color-light), var(--color-primary)),
         linear-gradient(to bottom, var(--color-primary), var(--color-primary));
     background-blend-mode: soft-light, normal;
@@ -472,7 +472,7 @@ details:not([open]) > .socratic-summary:hover::after {
       opacity: 0.5;
     }
 }
-
+  
 /* Title */
 
 .title-container {
@@ -750,7 +750,7 @@ details:not([open]) > .socratic-summary:hover::after {
     will-change: transform;
     transition: all .2s ease-in-out;
     color: var(--color-light);
-    background-image:
+    background-image: 
         linear-gradient(to bottom, var(--color-light), var(--color-primary)),
         linear-gradient(to bottom, var(--color-secondary), var(--color-secondary));
     background-blend-mode: soft-light, normal;
@@ -775,7 +775,7 @@ details:not([open]) > .socratic-summary:hover::after {
     will-change: transform;
     transition: all 0.2s ease-in-out;
     color: #ffffff;
-    background-image:
+    background-image: 
         linear-gradient(to bottom, var(--color-light), var(--color-primary)),
         linear-gradient(to bottom, var(--color-primary), var(--color-primary));
     background-blend-mode: soft-light, normal;
@@ -790,7 +790,7 @@ details:not([open]) > .socratic-summary:hover::after {
     }
 }
 
-
+  
 /* Video embed styling */
 
 .video-wrapper {
@@ -818,7 +818,7 @@ details:not([open]) > .socratic-summary:hover::after {
     box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
     overflow: hidden;
 }
-
+  
 .chat-header {
     background-color: var(--color-primary);
     color: var(--color-light);
@@ -929,7 +929,7 @@ details:not([open]) > .socratic-summary:hover::after {
     position: relative;
 }
 
-
+  
   /* Lesson Learning Outcome Box, but can be used for other similar box use cases (by replacing image)*/
 
   .lesson-box {
@@ -940,7 +940,7 @@ details:not([open]) > .socratic-summary:hover::after {
     border-radius: 5px;
     margin: 20px 0;
   }
-
+  
   .lesson-table {
     border-collapse: collapse;
     background-color: var(--color-secondary-80);
@@ -948,13 +948,13 @@ details:not([open]) > .socratic-summary:hover::after {
     margin: 0 auto;
     width: 100%;
   }
-
+  
   .lesson-icon {
     width: 20%;
     text-align: center;
     vertical-align: middle;
   }
-
+  
   .lesson-text {
     width: 80%;
     vertical-align: middle;
@@ -1031,11 +1031,11 @@ details:not([open]) > .socratic-summary:hover::after {
   display: block;
   padding: 5px 30px;
   border-radius: 20px 20px 0 0;
-
+ 
   background-color: var(--color-primary);
   background-image: linear-gradient(to bottom, var(--color-light) 0%, var(--color-primary) 100%);
   background-blend-mode: soft-light;
-
+ 
   color: #FFFFFF;
   font-weight: 300;
   font-size: 20px;
@@ -1051,11 +1051,11 @@ details:not([open]) > .socratic-summary:hover::after {
   display: block;
   padding: 5px 30px;
   border-radius: 0 0 20px 20px;
-
+ 
   background-color: var(--color-primary);
   background-image: linear-gradient(to bottom, var(--color-light) 0%, var(--color-primary) 100%);
   background-blend-mode: soft-light;
-
+ 
   color: #FFFFFF;
   font-weight: 300;
   font-size: 20px;

@@ -1,5 +1,6 @@
+import { serializeWorkbookHtml } from "./html-serializer.js";
 import { createPreviewStorage } from "../../../src/core/storage.js";
-import { exportWorkbookPdf } from "../../../src/pdf/pdf-export.js?v=20260929-pdf-export-fix";
+import { exportWorkbookPdf } from "../../../src/pdf/pdf-export.js?v=20261028-savanna-branding-3";
 import { renderWorkbook } from "../../../src/core/renderer.js";
 import { registerAllFields } from "../../../src/fields/index.js";
 
@@ -43,52 +44,6 @@ export function setupSnippet() {
   ].join("\n");
 }
 
-const VOID_ELEMENTS = new Set(["img", "input", "br", "hr"]);
-
-function formatAttributes(el) {
-  return Array.from(el.attributes)
-    .map((attr) => ` ${attr.name}="${String(attr.value)
-      .replace(/&/g, "&amp;")
-      .replace(/"/g, "&quot;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")}"`)
-    .join("");
-}
-
-/** Recursively pretty-prints a DOM node — indented, one tag per line. */
-function formatNode(node, depth) {
-  const indent = "  ".repeat(depth);
-
-  if (node.nodeType === Node.TEXT_NODE) {
-    const text = node.textContent.trim();
-    return text ? `${indent}${text}` : "";
-  }
-  if (node.nodeType !== Node.ELEMENT_NODE) return "";
-
-  // Preserve whitespace and escaped text inside formatted content exactly.
-  if (node.classList.contains("wb-content")) return `${indent}${node.outerHTML}`;
-
-  const tag = node.tagName.toLowerCase();
-  const open = `${indent}<${tag}${formatAttributes(node)}>`;
-  if (VOID_ELEMENTS.has(tag)) return open;
-
-  const children = Array.from(node.childNodes).filter(
-    (child) => !(child.nodeType === Node.TEXT_NODE && !child.textContent.trim())
-  );
-  if (children.length === 0) return `${open}</${tag}>`;
-
-  const hasElementChild = children.some((child) => child.nodeType === Node.ELEMENT_NODE);
-  if (!hasElementChild) {
-    return `${open}${node.textContent.trim()}</${tag}>`;
-  }
-
-  const inner = children
-    .map((child) => formatNode(child, depth + 1))
-    .filter(Boolean)
-    .join("\n");
-  return `${open}\n${inner}\n${indent}</${tag}>`;
-}
-
 /**
  * The actual HTML that renders the workbook — real form elements (labels,
  * inputs, textareas, the image), no JSON, no data payload. The one-time
@@ -99,7 +54,7 @@ export function workbookHtml(config) {
   const container = document.createElement("div");
   container.dataset.workbook = config.id;
   renderWorkbook(config, container);
-  return formatNode(container, 0);
+  return serializeWorkbookHtml(container);
 }
 
 /**

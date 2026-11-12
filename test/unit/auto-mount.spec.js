@@ -34,6 +34,17 @@ describe("auto-mount.js — the one-time setup's loader", () => {
     expect(document.head.querySelector('link[rel="stylesheet"]')).toBeNull();
   });
 
+  it("never rewrites or reloads the LMS stylesheets", async () => {
+    document.head.innerHTML = '<link rel="stylesheet" href="https://lms.example/styles.css?signature=keep"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@latest/src/styles.css">';
+    const links = [...document.head.querySelectorAll('link')];
+    const before = links.map(link => link.outerHTML);
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ sha: "abc123deadbeef" }) });
+    vi.resetModules();
+    await import("../../src/auto-mount.js");
+    expect(links.map(link => link.outerHTML)).toEqual(before);
+    expect(document.head.querySelectorAll('link')).toHaveLength(2);
+  });
+
   it("falls back to a hardcoded commit-pinned jsDelivr URL (never jsDelivr's @main, the exact stale-cache bug this loader exists to dodge, and never raw.githubusercontent.com, which serves text/plain and can't run as a module script) if the GitHub API lookup fails", async () => {
     global.fetch = vi.fn().mockRejectedValue(new Error("offline"));
 

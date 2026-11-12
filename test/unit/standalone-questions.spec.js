@@ -19,12 +19,16 @@ it("authors standalone questions alongside sections and preserves them through H
   const render = () => renderSectionEditor(editor, state, ws.id, render, () => {});
   render();
   expect(editor.querySelectorAll(".builder-section-card")).toHaveLength(0);
+  editor.querySelector(".builder-add-standalone-layout-btn").click();
+  render();
   editor.querySelector(".builder-add-field-btn").click();
   const group = ws.sections[0];
   expect(group.unsectioned).toBe(true);
   state.updateField(ws.id, group.id, group.fields[0].id, { label: "First question" });
   const section = state.addSection(ws.id, { title: "Section" });
   state.addField(ws.id, section.id, { type: "short-text", label: "Inside section" });
+  render();
+  editor.querySelector(".builder-add-standalone-layout-btn").click();
   render();
   editor.querySelectorAll(".builder-add-field-btn")[2].click();
   expect(ws.sections[2].unsectioned).toBe(true);

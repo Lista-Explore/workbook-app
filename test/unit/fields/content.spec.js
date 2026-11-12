@@ -12,7 +12,7 @@ describe("Content", () => {
     const host = document.createElement("div");
     host.innerHTML = workbookHtml(config);
     const restored = domToConfig(host.firstElementChild);
-    expect(restored.worksheets[0].sections[0].fields[0].html).toBe(html);
+    expect(restored.worksheets[0].sections[0].fields[0].html.trim()).toBe(html);
   });
   it("preserves formatting while removing executable HTML", () => {
     const el = content.render({ id: "c", type: "content", html: '<h2>Title</h2><p style="color: red"><strong>Bold</strong></p><img src="x" onerror="alert(1)"><script>alert(1)</script><a href="javascript:alert(1)">Link</a>' });
