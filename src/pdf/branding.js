@@ -17,8 +17,12 @@ function cssValue(name, fallback) {
 export function getBranding() {
   const asset = (name) => {
     const version = "20261029-cover-header-footer";
-    const urls = [new URL(`../../assets/branding/${name}?v=${version}`, import.meta.url).href];
-    if (typeof location !== "undefined") urls.push(new URL(`/assets/branding/${name}?v=${version}`, location.origin).href);
+    const urls = [
+      `https://cdn.jsdelivr.net/gh/Lista-Explore/workbook-app@latest/assets/branding/${name}?v=${version}`,
+    ];
+    if (typeof location !== "undefined") {
+      urls.push(new URL(`/assets/branding/${name}?v=${version}`, location.origin).href);
+    }
     return urls;
   };
   return {
