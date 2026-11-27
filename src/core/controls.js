@@ -16,17 +16,32 @@ export function renderWorkbookControls(workbook) {
   downloadBtn.id = "wb-download-pdf-btn";
   downloadBtn.textContent = "Download PDF";
   downloadBtn.addEventListener("click", async () => {
-    const bytes = await workbook.exportPDF();
-    const blob = new Blob([bytes], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${workbook.config.id}-completed.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    downloadBtn.disabled = true;
+    try {
+      const bytes = await workbook.exportPDF();
+      if (!(bytes instanceof Uint8Array) || bytes.byteLength === 0) {
+        throw new Error("PDF export returned no data");
+      }
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${workbook.config.id}-completed.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      console.error("Failed to export workbook PDF", error);
+      downloadStatus.textContent = "Couldn’t create the PDF. Please try again.";
+    } finally {
+      downloadBtn.disabled = false;
+    }
   });
+
+  const downloadStatus = document.createElement("span");
+  downloadStatus.className = "wb-download-pdf-status";
+  downloadStatus.setAttribute("aria-live", "polite");
 
   const uploadLabel = document.createElement("label");
   uploadLabel.id = "wb-upload-pdf-label";
@@ -70,6 +85,7 @@ export function renderWorkbookControls(workbook) {
   resetBtn.addEventListener("click", () => workbook.clear());
 
   bar.appendChild(downloadBtn);
+  bar.appendChild(downloadStatus);
   bar.appendChild(uploadLabel);
   bar.appendChild(resetBtn);
   return bar;
