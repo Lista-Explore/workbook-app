@@ -59,7 +59,6 @@ export async function startBuilderApp(root, initialConfig) {
     previewBtn: root.querySelector("#builder-preview-btn"),
     previewDialog: root.querySelector("#builder-preview-dialog"),
      previewCloseBtn: root.querySelector("#builder-preview-close-btn"),
-     importInput: root.querySelector("#builder-import-input"),
      importHtmlBtn: root.querySelector("#builder-import-html-btn"),
      importHtmlDialog: root.querySelector("#builder-import-html-dialog"),
      importHtmlTextarea: root.querySelector("#builder-import-html-textarea"),
@@ -172,38 +171,7 @@ export async function startBuilderApp(root, initialConfig) {
     });
   }
 
-  // Reuse/edit a previously downloaded workbook — the ".json" produced by
-  // "Download workbook definition" is the one lossless, round-trippable
-  // format (a PDF or the mount snippet alone don't carry the full
-  // structure back out), so that's what gets read back in here.
-   if (elements.importInput) {
-     elements.importInput.addEventListener("change", async () => {
-       const file = elements.importInput.files[0];
-       elements.importInput.value = "";
-       if (!file) return;
-
-       let parsed;
-       try {
-         parsed = JSON.parse(await file.text());
-       } catch {
-         setStatus(`Couldn't read "${file.name}" — it doesn't look like a workbook definition.`);
-         return;
-       }
-       if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.worksheets)) {
-         setStatus(`"${file.name}" isn't a workbook definition.`);
-         return;
-       }
-
-       clearTimeout(saveTimer);
-       state.load(parsed);
-       activeWorksheetId = state.workbook.worksheets[0]?.id || null;
-       await draftStore.save(state.toConfig());
-       setStatus(`Imported "${parsed.title || parsed.id || file.name}".`);
-       await rerender();
-     });
-   }
-
-   // New LMS‑HTML import handling
+  // New LMS‑HTML import handling
    if (elements.importHtmlBtn && elements.importHtmlDialog) {
      elements.importHtmlBtn.addEventListener("click", () => {
        elements.importHtmlTextarea.value = "";
