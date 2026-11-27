@@ -26,6 +26,10 @@ export function renderSection(section, { values = {}, onFieldChange } = {}) {
   if (section.unsectioned) container.dataset.unsectioned = "true";
 
   if (!section.unsectioned) {
+    // Keep the authored state explicit in the published HTML. Some LMS HTML
+    // uploaders normalize/remove the native `open` attribute, so the Builder
+    // must not rely on that attribute alone when the HTML is imported again.
+    container.dataset.startCollapsed = String(Boolean(section.startCollapsed));
     if (!section.startCollapsed) container.open = true;
     const summary = document.createElement("summary");
     // "content-summary" is the LMS's own disclosure-banner class — reusing

@@ -151,7 +151,7 @@ function sectionConfigFromEl(sectionEl) {
     // Builder stores the inverse as startCollapsed so an LMS-HTML import
     // must preserve a section that was closed when it was exported.
     ...(!sectionEl.dataset.unsectioned && sectionEl.tagName === "DETAILS"
-      ? { startCollapsed: !sectionEl.open }
+      ? { startCollapsed: sectionEl.dataset.startCollapsed === "true" || (!sectionEl.dataset.startCollapsed && !sectionEl.open) }
       : {}),
     ...(sectionEl.dataset.unsectioned === "true" ? { unsectioned: true } : {}),
     ...(blockColumnCounts.length > 1 ? { blocks: blockColumnCounts } : {}),

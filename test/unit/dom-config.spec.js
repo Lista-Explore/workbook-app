@@ -214,6 +214,13 @@ describe("domToConfig — reconstructing structure from already-rendered HTML", 
     });
   });
 
+  it("uses the explicit collapsed marker when an LMS removes details[open]", () => {
+    const mount = document.createElement("div");
+    mount.innerHTML = `<div class="lms-workbook"><div class="wb-root"><div class="wb-worksheet-panel"><details class="wb-section" data-section-id="s1" data-start-collapsed="true"><summary class="wb-section-title"><div>Closed</div></summary><div class="wb-section-fields" data-columns="1"><div class="wb-column"><div class="wb-field" data-field-id="q1" data-field-type="short-text"><label class="wb-field-label">Answer</label><input type="text"></div></div></div></details></div></div></div>`;
+    const rebuilt = domToConfig(mount.firstElementChild);
+    expect(rebuilt.worksheets[0].sections[0].startCollapsed).toBe(true);
+  });
+
   it("recovers worksheet titles from the tab labels when there is more than one worksheet", () => {
     const config = {
       id: "wb7",
