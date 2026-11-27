@@ -33,7 +33,8 @@ export function renderWorkbookControls(workbook) {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) {
       console.error("Failed to export workbook PDF", error);
-      downloadStatus.textContent = "Couldn’t create the PDF. Please try again.";
+      const message = error instanceof Error ? error.message : String(error);
+      downloadStatus.textContent = `Couldn’t create the PDF: ${message}`;
     } finally {
       downloadBtn.disabled = false;
     }
