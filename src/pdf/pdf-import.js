@@ -9,14 +9,15 @@ const SCOREBOARD_ROW_RE = /^(.*)__score__(\d+)$/;
 function readFieldValue(form, pdfFieldName) {
   const field = form.getFieldMaybe ? form.getFieldMaybe(pdfFieldName) : safeGetField(form, pdfFieldName);
   if (!field) return undefined;
-  const ctor = field.constructor.name;
-  if (ctor === "PDFTextField") return field.getText() || "";
-  if (ctor === "PDFCheckBox") return field.isChecked();
-  if (ctor === "PDFDropdown") {
+  // Detect fields by their public API rather than constructor.name. The LMS
+  // runtime is bundled/minified, so constructor names are not stable there.
+  if (typeof field.getText === "function") return field.getText() || "";
+  if (typeof field.isChecked === "function") return field.isChecked();
+  if (typeof field.getSelected === "function") {
     const selected = field.getSelected();
-    return selected && selected.length ? selected[0] : "";
+    if (Array.isArray(selected)) return selected.length ? selected[0] : "";
+    return selected || null;
   }
-  if (ctor === "PDFRadioGroup") return field.getSelected() || null;
   return undefined;
 }
 
