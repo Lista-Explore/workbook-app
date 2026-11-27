@@ -568,6 +568,24 @@ describe("exportWorkbookPdf — table and field mapping", () => {
     ]);
     expect(imported.unmatchedInPdf).toEqual([]);
   });
+
+  it("imports a radio group after an external PDF editor renames it", async () => {
+    const config = {
+      id: "renamed-radio",
+      worksheets: [{ id: "ws", sections: [{ fields: [
+        { id: "priority", type: "radio", label: "Priority", options: ["Low", "High"], column: 0 },
+      ] }] }],
+    };
+    const pdfDoc = await PDFDocument.load(await exportWorkbookPdf(config, {}));
+    const form = pdfDoc.getForm();
+    const radio = form.getRadioGroup("priority");
+    radio.select("High");
+    radio.acroField.setPartialName("Radio Button 1");
+
+    const imported = await importWorkbookPdf(config, await pdfDoc.save());
+    expect(imported.data.worksheets.ws.priority).toBe("High");
+    expect(imported.unmatchedInPdf).toEqual([]);
+  });
 });
 
 describe("exportWorkbookPdf — content flow regressions", () => {

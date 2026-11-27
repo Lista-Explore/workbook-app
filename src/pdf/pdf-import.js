@@ -42,6 +42,30 @@ function selectedChoiceForWorkbook(form, pdfFieldName, field, value) {
   return selectedIndex >= 0 ? options[selectedIndex] || null : null;
 }
 
+function pdfFieldForName(form, name) {
+  return form.getFieldMaybe ? form.getFieldMaybe(name) : safeGetField(form, name);
+}
+
+/**
+ * PDF editors sometimes replace a radio group while preserving its widgets,
+ * but give the replacement a new field name. Match only radio groups and
+ * only when their option list identifies one workbook radio unambiguously.
+ */
+function findRenamedRadioEntry(form, pdfFieldName, workbookFields, usedIds) {
+  const pdfField = pdfFieldForName(form, pdfFieldName);
+  if (!pdfField || typeof pdfField.getOptions !== "function") return null;
+  const pdfOptions = pdfField.getOptions().map((option) => String(option));
+  if (pdfOptions.length === 0) return null;
+
+  const candidates = workbookFields.filter(({ fieldId, field }) => {
+    if (usedIds.has(fieldId) || field.type !== "radio") return false;
+    const options = (field.options || []).map((option) => String(option));
+    const overlap = pdfOptions.filter((option) => options.includes(option)).length;
+    return overlap > 0 || (pdfOptions.length === options.length && pdfOptions.length === 1);
+  });
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
 function isBlank(value) {
   return value == null || value === "" || value === false;
 }
@@ -66,6 +90,7 @@ export async function importWorkbookPdf(config, pdfBytes, existingData = {}) {
 
   let matchedCount = 0;
   const matchedIds = new Set();
+  const matchedPdfNames = new Set();
   const checkboxGroupSelections = new Map(); // fieldId -> Set(optionIndex checked)
   const tableCellValues = new Map(); // fieldId -> { entry, rows }
   const scaleAnswers = new Map(); // fieldId -> { entry, answers[] }
@@ -125,7 +150,13 @@ export async function importWorkbookPdf(config, pdfBytes, existingData = {}) {
       continue;
     }
 
-    const entry = workbookFieldById.get(pdfFieldName);
+    let entry = workbookFieldById.get(pdfFieldName);
+    // A PDF editor may recreate a radio group with a different field name.
+    // Use its option values as a constrained fallback, never for other field
+    // types and never when the match would be ambiguous.
+    if (!entry) {
+      entry = findRenamedRadioEntry(form, pdfFieldName, workbookFields, matchedIds);
+    }
     if (!entry) continue;
     const value = selectedChoiceForWorkbook(form, pdfFieldName, entry.field, readFieldValue(form, pdfFieldName));
     if (isBlank(value)) continue;
@@ -133,6 +164,7 @@ export async function importWorkbookPdf(config, pdfBytes, existingData = {}) {
     if (!mergedWorksheets[entry.worksheetId]) mergedWorksheets[entry.worksheetId] = {};
     mergedWorksheets[entry.worksheetId][entry.fieldId] = value;
     matchedIds.add(entry.fieldId);
+    matchedPdfNames.add(pdfFieldName);
     matchedCount += 1;
   }
 
@@ -180,7 +212,7 @@ export async function importWorkbookPdf(config, pdfBytes, existingData = {}) {
       return (entry.field.options || []).map((_, i) => `${fieldId}__opt__${i}`);
     }),
   ]);
-  const unmatchedInPdf = pdfFieldNames.filter((name) => !knownPdfNames.has(name) && !CHECKBOX_GROUP_OPT_RE.test(name) && !TABLE_CELL_RE.test(name) && !SCALE_ROW_RE.test(name) && !SCOREBOARD_ROW_RE.test(name));
+  const unmatchedInPdf = pdfFieldNames.filter((name) => !matchedPdfNames.has(name) && !knownPdfNames.has(name) && !CHECKBOX_GROUP_OPT_RE.test(name) && !TABLE_CELL_RE.test(name) && !SCALE_ROW_RE.test(name) && !SCOREBOARD_ROW_RE.test(name));
 
   return {
     data: {
