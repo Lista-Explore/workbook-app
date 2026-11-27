@@ -46,6 +46,13 @@ function readRadioValue(form, pdfFieldName, field) {
   const pdfField = pdfFieldForName(form, pdfFieldName);
   if (!pdfField) return undefined;
 
+  // Preserve the normal AcroForm radio-group path. Native radio groups
+  // expose their selected export value directly; widget inspection is only
+  // needed for editors that rewrote the group as a checkbox field.
+  if (typeof pdfField.getSelected === "function") {
+    return pdfField.getSelected() || "";
+  }
+
   // Some PDF editors rewrite radio groups as checkbox fields with one
   // widget per option. The selected option is stored in the widget's
   // appearance state, not in getSelected(). Recover it by widget position.
