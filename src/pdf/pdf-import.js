@@ -42,6 +42,26 @@ function selectedChoiceForWorkbook(form, pdfFieldName, field, value) {
   return selectedIndex >= 0 ? options[selectedIndex] || null : null;
 }
 
+function readRadioValue(form, pdfFieldName, field) {
+  const pdfField = pdfFieldForName(form, pdfFieldName);
+  if (!pdfField) return undefined;
+
+  // Some PDF editors rewrite radio groups as checkbox fields with one
+  // widget per option. The selected option is stored in the widget's
+  // appearance state, not in getSelected(). Recover it by widget position.
+  const widgets = pdfField.acroField?.getWidgets?.() || [];
+  if (field.type === "radio" && widgets.length > 1) {
+    const selectedIndex = widgets.findIndex((widget) => {
+      const state = widget.getAppearanceState?.();
+      if (!state || state.decodeText?.() === "Off") return false;
+      const onValue = widget.getOnValue?.();
+      return !onValue || state.decodeText?.() === onValue.decodeText?.();
+    });
+    if (selectedIndex >= 0) return String(field.options?.[selectedIndex] ?? "");
+  }
+  return readFieldValue(form, pdfFieldName);
+}
+
 function pdfFieldForName(form, name) {
   return form.getFieldMaybe ? form.getFieldMaybe(name) : safeGetField(form, name);
 }
@@ -158,7 +178,10 @@ export async function importWorkbookPdf(config, pdfBytes, existingData = {}) {
       entry = findRenamedRadioEntry(form, pdfFieldName, workbookFields, matchedIds);
     }
     if (!entry) continue;
-    const value = selectedChoiceForWorkbook(form, pdfFieldName, entry.field, readFieldValue(form, pdfFieldName));
+    const rawValue = entry.field.type === "radio"
+      ? readRadioValue(form, pdfFieldName, entry.field)
+      : readFieldValue(form, pdfFieldName);
+    const value = selectedChoiceForWorkbook(form, pdfFieldName, entry.field, rawValue);
     if (isBlank(value)) continue;
 
     if (!mergedWorksheets[entry.worksheetId]) mergedWorksheets[entry.worksheetId] = {};
