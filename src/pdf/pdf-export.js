@@ -889,8 +889,8 @@ function drawTableField({ form, font, boldFont, page, field, value, x, y, width,
       const widgetY = cell.type === "long-text" ? rowBottom + cellPad : cursorY - cellPad - widgetHeight;
       if (cell.type === "dropdown") {
         const dd = form.createDropdown(fieldName);
-        dd.addOptions(cell.options || []);
-        if (cellValue) dd.select(String(cellValue));
+        dd.addOptions((cell.options || []).map((option) => String(option)));
+        if (cellValue != null && cellValue !== "") dd.select(String(cellValue));
         dd.addToPage(page, { x: innerX, y: widgetY, width: innerWidth, height: widgetHeight, font });
         dd.setFontSize(9);
         cellX += cellWidth;
@@ -961,8 +961,8 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
 
     case "dropdown": {
       const dd = form.createDropdown(field.id);
-      dd.addOptions(field.options || []);
-      if (value) dd.select(value);
+      dd.addOptions((field.options || []).map((option) => String(option)));
+      if (value != null && value !== "") dd.select(String(value));
       dd.addToPage(page, { x, y: widgetY - 16, width, height: 18, font });
       dd.setFontSize(10);
       return;
@@ -971,12 +971,13 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
     case "radio": {
       const rg = form.createRadioGroup(field.id);
       let optionY = widgetY;
-      for (const option of field.options || []) {
+      for (const rawOption of field.options || []) {
+        const option = String(rawOption);
         rg.addOptionToPage(option, page, { x, y: optionY - 12, width: 12, height: 12 });
         page.drawText(pdfText(option), { x: x + 18, y: optionY - 11, size: 9, font });
         optionY -= 16;
       }
-      if (value) rg.select(value);
+      if (value != null && value !== "") rg.select(String(value));
       return;
     }
 
