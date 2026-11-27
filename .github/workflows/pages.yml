@@ -27,8 +27,7 @@ jobs:
       - name: Prepare site directory
         run: |
           mkdir -p _site
-          cp -R . _site/
-          rm -rf _site/.git _site/.github _site/_site
+          tar --exclude='./_site' --exclude='./.git' --exclude='./.github' --exclude='./.cline' -cf - . | tar -xf - -C _site
 
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
