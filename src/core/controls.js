@@ -30,20 +30,37 @@ export function renderWorkbookControls(workbook) {
 
   const uploadLabel = document.createElement("label");
   uploadLabel.id = "wb-upload-pdf-label";
-  uploadLabel.textContent = "Upload filled PDF: ";
+  uploadLabel.className = "wb-upload-pdf-control";
+  const uploadBtn = document.createElement("button");
+  uploadBtn.type = "button";
+  uploadBtn.className = "wb-upload-pdf-button";
+  uploadBtn.textContent = "Upload filled PDF";
   const uploadInput = document.createElement("input");
   uploadInput.type = "file";
   uploadInput.id = "wb-upload-pdf-input";
   uploadInput.accept = "application/pdf";
+  uploadBtn.addEventListener("click", () => uploadInput.click());
   uploadInput.addEventListener("change", async () => {
     const file = uploadInput.files[0];
     uploadInput.value = "";
     if (!file) return;
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    await workbook.importPDF(bytes);
+    status.textContent = "Reading PDF…";
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      await workbook.importPDF(bytes);
+      status.textContent = "PDF answers imported.";
+    } catch (error) {
+      console.error("Failed to import filled PDF", error);
+      status.textContent = "Couldn’t import that PDF. Please upload a PDF downloaded from this workbook.";
+    }
   });
 
+  const status = document.createElement("span");
+  status.className = "wb-upload-pdf-status";
+  status.setAttribute("aria-live", "polite");
+  uploadLabel.appendChild(uploadBtn);
   uploadLabel.appendChild(uploadInput);
+  uploadLabel.appendChild(status);
 
   const resetBtn = document.createElement("button");
   resetBtn.type = "button";

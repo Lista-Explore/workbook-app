@@ -54,7 +54,27 @@ export function workbookHtml(config) {
   const container = document.createElement("div");
   container.dataset.workbook = config.id;
   renderWorkbook(config, container);
-  return serializeWorkbookHtml(container);
+  return wrapLmsWorkbookHtml(serializeWorkbookHtml(container));
+}
+
+/**
+ * Adds the LMS-only presentation wrapper around the workbook markup.
+ * Preview mounts the workbook itself and does not use this function.
+ */
+export function wrapLmsWorkbookHtml(workbookMarkup) {
+  return `<div style="border-radius: 10px; background-color: #103049; overflow: hidden; margin: 24px 0;">
+  <div style="height: 6px; background-color: #F79220;"></div>
+  <div style="padding: 20px;">
+    <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #F79220; margin-bottom: 10px;">
+      Workbook
+    </div>
+    <div style="color: #ffffff;">
+      <div style="background-color: #ffffff; border-radius: 8px; padding: 12px; color: #002b56;">
+${workbookMarkup}
+      </div>
+    </div>
+  </div>
+</div>`;
 }
 
 /**

@@ -1,5 +1,5 @@
 import { renderWorkbook } from "../../../src/core/renderer.js";
-import { hydrateWorkbook } from "../../../src/core/hydrate.js";
+import { hydrateWorkbook } from "../../../src/core/hydrate.js?v=20261127-pdf-upload-2";
 import { createPreviewStorage } from "../../../src/core/storage.js";
 
 /**

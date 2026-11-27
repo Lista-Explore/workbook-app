@@ -427,6 +427,32 @@ details.wb-section:not([open]) > .wb-section-fields {
   color: #6b7280;
 }
 
+.lms-workbook #wb-controls .wb-upload-pdf-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+}
+
+.lms-workbook #wb-controls .wb-upload-pdf-button {
+  display: inline-block;
+  font: inherit;
+  font-weight: 600;
+  padding: 0.55em 0.95em;
+  border: 1px solid var(--wb-border-strong);
+  border-radius: 7px;
+  background: var(--wb-surface);
+  color: var(--wb-text);
+  cursor: pointer;
+}
+
+.lms-workbook #wb-controls .wb-upload-pdf-button:hover {
+  background: var(--wb-bg);
+}
+
+.lms-workbook #wb-controls .wb-upload-pdf-status {
+  font-size: 0.85em;
+}
+
 .lms-workbook #wb-controls button {
   font: inherit;
   font-weight: 600;
@@ -458,8 +484,11 @@ details.wb-section:not([open]) > .wb-section-fields {
 }
 
 .lms-workbook #wb-upload-pdf-input {
-  margin-left: 0.45em;
-  max-width: 16em;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Rich content is shared by preview and published workbooks. These selectors

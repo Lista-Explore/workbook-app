@@ -1,6 +1,6 @@
 import { FieldRegistry } from "../fields/registry.js";
 import { createWorkbookStorage } from "./storage.js";
-import { renderWorkbookControls } from "./controls.js";
+import { renderWorkbookControls } from "./controls.js?v=20261127-pdf-upload-2";
 import { exportWorkbookPdf } from "../pdf/pdf-export.js";
 import { importWorkbookPdf } from "../pdf/pdf-import.js";
 import { domToConfig } from "./dom-config.js";
