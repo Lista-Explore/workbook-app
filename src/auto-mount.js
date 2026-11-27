@@ -23,7 +23,7 @@ const REPO = "Lista-Explore/workbook-app";
 // This commit includes the current PDF exporter, including real radio groups.
 // Keep this fallback newer than the old checkbox-based exporter so LMS pages
 // still work when the GitHub API is unavailable or blocked by the host.
-const FALLBACK_COMMIT = "785168cd7dfc97e4125b38eaba823c8e8a4e8154";
+const FALLBACK_COMMIT = "7fe597f4b02e02e3bb7916ceef3444ec860815e0";
 
 async function resolveRuntimeUrl() {
   try {
