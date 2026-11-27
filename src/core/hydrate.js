@@ -90,6 +90,15 @@ export async function hydrateWorkbook(rootEl, { storage } = {}) {
   }
 
   const persist = debounce(() => workbookStorage.set("state", data), AUTOSAVE_DELAY_MS);
+  // A user can reload or navigate away before the debounce timer fires.
+  // Persist the current in-memory state at the browser lifecycle boundary so
+  // the last answer is not lost merely because it was entered recently.
+  const persistImmediately = () => {
+    void workbookStorage.set("state", data);
+  };
+  rootEl.addEventListener("pagehide", persistImmediately);
+  rootEl.ownerDocument?.defaultView?.addEventListener("pagehide", persistImmediately);
+  rootEl.ownerDocument?.defaultView?.addEventListener("beforeunload", persistImmediately);
   if (migrated) persist();
 
   rootEl.addEventListener("input", (event) => {
