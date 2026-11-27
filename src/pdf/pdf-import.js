@@ -29,6 +29,19 @@ function safeGetField(form, name) {
   }
 }
 
+function selectedChoiceForWorkbook(form, pdfFieldName, field, value) {
+  if (field.type !== "radio" || typeof value !== "string") return value;
+  const options = (field.options || []).map((option) => String(option));
+  if (options.includes(value)) return value;
+
+  // Some PDF readers rewrite a radio group's internal export value while
+  // keeping the option order intact. Map that value back by position.
+  const pdfField = form.getFieldMaybe ? form.getFieldMaybe(pdfFieldName) : safeGetField(form, pdfFieldName);
+  const pdfOptions = pdfField && typeof pdfField.getOptions === "function" ? pdfField.getOptions() : [];
+  const selectedIndex = pdfOptions.indexOf(value);
+  return selectedIndex >= 0 ? options[selectedIndex] || null : null;
+}
+
 function isBlank(value) {
   return value == null || value === "" || value === false;
 }
@@ -114,7 +127,7 @@ export async function importWorkbookPdf(config, pdfBytes, existingData = {}) {
 
     const entry = workbookFieldById.get(pdfFieldName);
     if (!entry) continue;
-    const value = readFieldValue(form, pdfFieldName);
+    const value = selectedChoiceForWorkbook(form, pdfFieldName, entry.field, readFieldValue(form, pdfFieldName));
     if (isBlank(value)) continue;
 
     if (!mergedWorksheets[entry.worksheetId]) mergedWorksheets[entry.worksheetId] = {};
