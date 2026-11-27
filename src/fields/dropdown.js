@@ -28,7 +28,9 @@ export const dropdown = {
     return wrapper.querySelector("select").value;
   },
   setValue(wrapper, value) {
-    wrapper.querySelector("select").value = value == null ? "" : value;
+    const select = wrapper.querySelector("select");
+    const candidate = typeof value === "string" ? value : "";
+    select.value = [...select.options].some((option) => option.value === candidate) ? candidate : "";
   },
   validate(field, value) {
     if (field.required && !value) {

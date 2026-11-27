@@ -41,8 +41,12 @@ export const radio = {
     return checked ? checked.value : null;
   },
   setValue(wrapper, value) {
+    const validValue = (typeof value === "string" &&
+      [...wrapper.querySelectorAll("input[type=radio]")].some((input) => input.value === value))
+      ? value
+      : null;
     wrapper.querySelectorAll("input[type=radio]").forEach((input) => {
-      input.checked = input.value === value;
+      input.checked = input.value === validValue;
     });
   },
   validate(field, value) {

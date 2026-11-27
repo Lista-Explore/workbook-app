@@ -889,8 +889,10 @@ function drawTableField({ form, font, boldFont, page, field, value, x, y, width,
       const widgetY = cell.type === "long-text" ? rowBottom + cellPad : cursorY - cellPad - widgetHeight;
       if (cell.type === "dropdown") {
         const dd = form.createDropdown(fieldName);
-        dd.addOptions((cell.options || []).map((option) => String(option)));
-        if (cellValue != null && cellValue !== "") dd.select(String(cellValue));
+        const options = (cell.options || []).map((option) => String(option));
+        dd.addOptions(options);
+        const selected = cellValue == null ? "" : String(cellValue);
+        if (selected && options.includes(selected)) dd.select(selected);
         dd.addToPage(page, { x: innerX, y: widgetY, width: innerWidth, height: widgetHeight, font });
         dd.setFontSize(9);
         cellX += cellWidth;
@@ -961,8 +963,10 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
 
     case "dropdown": {
       const dd = form.createDropdown(field.id);
-      dd.addOptions((field.options || []).map((option) => String(option)));
-      if (value != null && value !== "") dd.select(String(value));
+      const options = (field.options || []).map((option) => String(option));
+      dd.addOptions(options);
+      const selected = value == null ? "" : String(value);
+      if (selected && options.includes(selected)) dd.select(selected);
       dd.addToPage(page, { x, y: widgetY - 16, width, height: 18, font });
       dd.setFontSize(10);
       return;
@@ -977,7 +981,9 @@ function drawField({ form, font, boldFont, page, field, value, x, y, width }) {
         page.drawText(pdfText(option), { x: x + 18, y: optionY - 11, size: 9, font });
         optionY -= 16;
       }
-      if (value != null && value !== "") rg.select(String(value));
+      const options = (field.options || []).map((option) => String(option));
+      const selected = value == null ? "" : String(value);
+      if (selected && options.includes(selected)) rg.select(selected);
       return;
     }
 
