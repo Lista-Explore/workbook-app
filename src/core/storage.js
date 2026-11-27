@@ -101,6 +101,16 @@ export class StorageManager {
   async get(key) {
     const backend = await this._resolveBackend();
     const fullKey = this._fullKey(key);
+    // Prefer the synchronous browser store when present. Some LMS frames
+    // report IndexedDB as available but do not preserve it across reloads.
+    if (backend === "indexeddb" && typeof localStorage !== "undefined") {
+      try {
+        const raw = localStorage.getItem(fullKey);
+        if (raw) return JSON.parse(raw);
+      } catch {
+        // Fall through to IndexedDB.
+      }
+    }
     if (backend === "indexeddb") {
       try {
         return await idbGet(fullKey);
@@ -122,6 +132,9 @@ export class StorageManager {
     if (backend === "indexeddb") {
       try {
         await idbSet(fullKey, value);
+        if (typeof localStorage !== "undefined") {
+          try { localStorage.setItem(fullKey, JSON.stringify(value)); } catch { /* best effort */ }
+        }
         return;
       } catch {
         this.backend = "memory";
@@ -144,6 +157,9 @@ export class StorageManager {
     if (backend === "indexeddb") {
       try {
         await idbDelete(fullKey);
+        if (typeof localStorage !== "undefined") {
+          try { localStorage.removeItem(fullKey); } catch { /* best effort */ }
+        }
         return;
       } catch {
         this.backend = "memory";
