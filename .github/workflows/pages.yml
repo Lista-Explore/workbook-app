@@ -30,7 +30,7 @@ jobs:
       - name: Prepare clean site directory
         run: |
           mkdir -p _site
-          git archive --format=tar HEAD | tar -xf - -C _site
+          git archive --format=tar HEAD -- . ':(exclude).cline' | tar -xf - -C _site
 
       - name: Upload site artifact
         uses: actions/upload-artifact@v4
